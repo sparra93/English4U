@@ -22,6 +22,7 @@ Regla principal:
 - `requirements.server.txt`: dependencias completas del servidor central
 - `requirements.proxy.txt`: dependencias minimas para cliente proxy
 - `dev.sh`: arranque local con HTTPS para usar microfono en navegador
+- `server.sh`: arranque del servidor central en HTTP local con Tailscale Serve opcional
 
 ## Modo 1: servidor central
 
@@ -68,6 +69,19 @@ Produccion simple:
 ```bash
 venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090
 ```
+
+Script recomendado para servidor central:
+
+```bash
+./server.sh
+```
+
+Este script:
+
+- arranca FastAPI en HTTP local
+- evita mezclar HTTPS local con Tailscale Serve
+- configura `tailscale serve` si `ENABLE_TAILSCALE_SERVE=1`
+- falla si `REMOTE_BACKEND_BASE_URL` esta configurado
 
 Desarrollo con HTTPS:
 

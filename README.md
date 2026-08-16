@@ -94,6 +94,12 @@ Si todavia no descargaste el modelo de Ollama:
 ollama pull qwen3.5:9b-32k
 ```
 
+Script recomendado para este equipo:
+
+```bash
+./server.sh
+```
+
 ### Cliente proxy
 
 En un equipo que solo usara la UI y enviara todo al servidor central, instala solo las dependencias minimas:
@@ -116,6 +122,12 @@ Con eso no hace falta instalar Ollama, descargar modelos ni levantar Whisper/Kok
 
 ```bash
 venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090
+```
+
+Si esta maquina sera el servidor central para otros clientes, usa preferentemente:
+
+```bash
+./server.sh
 ```
 
 Abrir en el navegador:
@@ -191,7 +203,7 @@ Ventajas de este enfoque:
 En el computador que estara encendido 24/7:
 
 ```bash
-venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090
+./server.sh
 ```
 
 ### Equipo cliente o de desarrollo
