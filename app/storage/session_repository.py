@@ -17,6 +17,7 @@ class SessionRecord:
     ended_at: str | None
     resolved_config_json: str | None
     session_override_json: str | None
+    deleted_at: str | None
 
 
 @dataclass
@@ -36,6 +37,7 @@ def _row_to_record(row: object) -> SessionRecord:
         ended_at=row["ended_at"],
         resolved_config_json=row["resolved_config_json"],
         session_override_json=row["session_override_json"],
+        deleted_at=row["deleted_at"],
     )
 
 
@@ -89,7 +91,7 @@ def list_sessions_for_learner(
                 COUNT(turns.turn_id) AS turn_count
             FROM sessions
             JOIN turns ON turns.session_id = sessions.session_id
-            WHERE sessions.learner_id = ?
+            WHERE sessions.learner_id = ? AND sessions.deleted_at IS NULL
             GROUP BY sessions.session_id
             ORDER BY sessions.last_active_at DESC
             LIMIT ?
@@ -106,6 +108,28 @@ def list_sessions_for_learner(
         )
         for row in rows
     ]
+
+
+def soft_delete_session(db_path: str | Path, session_id: str, learner_id: str) -> bool:
+    """Hide a session from the sidebar without touching its turns.
+
+    Turns stay in the database untouched, so `/api/history` (My Progress)
+    keeps counting them — only `list_sessions_for_learner` excludes the
+    session going forward. Returns False if the session doesn't exist,
+    belongs to another learner, or was already deleted.
+    """
+
+    now = datetime.now(timezone.utc).isoformat()
+    with session_scope(db_path) as connection:
+        cursor = connection.execute(
+            """
+            UPDATE sessions
+            SET deleted_at = ?
+            WHERE session_id = ? AND learner_id = ? AND deleted_at IS NULL
+            """,
+            (now, session_id, learner_id),
+        )
+        return cursor.rowcount > 0
 
 
 def touch_session(

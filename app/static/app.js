@@ -57,6 +57,13 @@ const ICONS = {
       <path d="M4 12h14M13 7l5 5-5 5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
     </svg>
   `,
+  kebab: `
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+      <circle cx="12" cy="5" r="1.7" fill="currentColor"/>
+      <circle cx="12" cy="12" r="1.7" fill="currentColor"/>
+      <circle cx="12" cy="19" r="1.7" fill="currentColor"/>
+    </svg>
+  `,
 };
 
 const state = {
@@ -443,11 +450,13 @@ function formatSessionDate(isoString) {
 }
 
 function renderSessionsList() {
+  closeSessionMenu();
   sessionsListEl.innerHTML = "";
   sessionsEmptyEl.hidden = sessionsCache.length > 0;
 
   sessionsCache.forEach((session) => {
     const item = document.createElement("li");
+    item.className = "session-row";
 
     const button = document.createElement("button");
     button.type = "button";
@@ -468,9 +477,121 @@ function renderSessionsList() {
     countEl.textContent = session.turn_count === 1 ? "1 turn" : `${session.turn_count} turns`;
 
     button.append(dateEl, countEl);
-    item.appendChild(button);
+
+    const menuTrigger = document.createElement("button");
+    menuTrigger.type = "button";
+    menuTrigger.className = "session-menu-trigger";
+    menuTrigger.dataset.sessionId = session.session_id;
+    menuTrigger.setAttribute("aria-label", "Session options");
+    menuTrigger.setAttribute("aria-haspopup", "true");
+    menuTrigger.setAttribute("aria-expanded", "false");
+    menuTrigger.innerHTML = ICONS.kebab;
+
+    item.append(button, menuTrigger);
     sessionsListEl.appendChild(item);
   });
+}
+
+let sessionMenuEl = null;
+let sessionMenuOpenId = null;
+
+function getSessionMenu() {
+  if (sessionMenuEl) {
+    return sessionMenuEl;
+  }
+
+  sessionMenuEl = document.createElement("div");
+  sessionMenuEl.className = "session-menu";
+  sessionMenuEl.setAttribute("role", "menu");
+  sessionMenuEl.hidden = true;
+
+  const deleteItem = document.createElement("button");
+  deleteItem.type = "button";
+  deleteItem.className = "session-menu-item is-danger";
+  deleteItem.setAttribute("role", "menuitem");
+  deleteItem.textContent = "Delete";
+  deleteItem.addEventListener("click", () => {
+    const sessionId = sessionMenuEl.dataset.sessionId;
+    closeSessionMenu();
+    handleDeleteSession(sessionId);
+  });
+
+  sessionMenuEl.appendChild(deleteItem);
+  document.body.appendChild(sessionMenuEl);
+  return sessionMenuEl;
+}
+
+function closeSessionMenu() {
+  if (sessionMenuEl) {
+    sessionMenuEl.hidden = true;
+  }
+
+  if (sessionMenuOpenId) {
+    const trigger = sessionsListEl.querySelector(
+      `.session-menu-trigger[data-session-id="${CSS.escape(sessionMenuOpenId)}"]`,
+    );
+    trigger?.setAttribute("aria-expanded", "false");
+  }
+
+  sessionMenuOpenId = null;
+}
+
+function openSessionMenu(trigger) {
+  const sessionId = trigger.dataset.sessionId;
+  const wasOpenForThisSession = sessionMenuOpenId === sessionId;
+
+  closeSessionMenu();
+
+  if (wasOpenForThisSession) {
+    return;
+  }
+
+  const menu = getSessionMenu();
+  menu.dataset.sessionId = sessionId;
+  menu.hidden = false;
+
+  const triggerRect = trigger.getBoundingClientRect();
+  const menuRect = menu.getBoundingClientRect();
+  menu.style.top = `${triggerRect.bottom + 4}px`;
+  menu.style.left = `${triggerRect.right - menuRect.width}px`;
+
+  trigger.setAttribute("aria-expanded", "true");
+  sessionMenuOpenId = sessionId;
+}
+
+async function handleDeleteSession(sessionId) {
+  if (!sessionId) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Delete this session? It will disappear from your session list, but it won't affect your progress stats.",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  hideError();
+
+  try {
+    const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok && response.status !== 404) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.detail || "Could not delete that session.");
+    }
+
+    sessionsCache = sessionsCache.filter((session) => session.session_id !== sessionId);
+    renderSessionsList();
+
+    if (sessionId === state.sessionId) {
+      startNewSession();
+    }
+  } catch (error) {
+    showError(error.message || "Could not delete that session.");
+  }
 }
 
 async function loadSessionsList() {
@@ -760,12 +881,36 @@ responseAudio.addEventListener("error", () => {
 newSessionButton.addEventListener("click", startNewSession);
 
 sessionsListEl.addEventListener("click", (event) => {
+  const menuTrigger = event.target.closest(".session-menu-trigger");
+  if (menuTrigger) {
+    openSessionMenu(menuTrigger);
+    return;
+  }
+
   const button = event.target.closest(".session-item");
   if (!button) {
     return;
   }
 
   switchToSession(button.dataset.sessionId);
+});
+
+document.addEventListener("click", (event) => {
+  if (!sessionMenuOpenId) {
+    return;
+  }
+
+  if (event.target.closest(".session-menu") || event.target.closest(".session-menu-trigger")) {
+    return;
+  }
+
+  closeSessionMenu();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && sessionMenuOpenId) {
+    closeSessionMenu();
+  }
 });
 
 recordingWave.dataset.active = "false";

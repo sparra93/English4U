@@ -96,6 +96,7 @@ def _load_local_data_layer() -> dict[str, object]:
     from app.storage.session_repository import (
         get_or_create_session,
         list_sessions_for_learner,
+        soft_delete_session,
         touch_session,
     )
     from app.storage.turn_repository import (
@@ -114,6 +115,7 @@ def _load_local_data_layer() -> dict[str, object]:
         "get_or_create_default_learner": get_or_create_default_learner,
         "get_or_create_session": get_or_create_session,
         "list_sessions_for_learner": list_sessions_for_learner,
+        "soft_delete_session": soft_delete_session,
         "touch_session": touch_session,
         "get_recent_turns": get_recent_turns,
         "get_turns_for_learner": get_turns_for_learner,
@@ -355,6 +357,24 @@ async def session_turns(session_id: str) -> JSONResponse:
             ],
         }
     )
+
+
+@app.delete("/api/sessions/{session_id}")
+async def delete_session(session_id: str) -> JSONResponse:
+    if len(session_id) > MAX_SESSION_ID_LENGTH:
+        raise HTTPException(status_code=400, detail="session_id is too long.")
+
+    if _is_proxy_mode():
+        return _proxy_json("DELETE", f"/api/sessions/{session_id}")
+
+    data_layer = app.state.data_layer
+    learner = data_layer["get_or_create_default_learner"](settings.db_path)
+    deleted = data_layer["soft_delete_session"](settings.db_path, session_id, learner.learner_id)
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    return JSONResponse({"session_id": session_id, "deleted": True})
 
 
 @app.get("/generated/{file_path:path}")

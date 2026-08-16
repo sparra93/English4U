@@ -109,7 +109,7 @@ body.page-scroll .app-shell {
   width: 60px;
 }
 
-.app-sidebar.is-collapsed .brand-copy,
+.app-sidebar.is-collapsed .brand,
 .app-sidebar.is-collapsed .nav-text,
 .app-sidebar.is-collapsed .sidebar-sessions {
   display: none;
@@ -117,6 +117,19 @@ body.page-scroll .app-shell {
 
 .app-sidebar.is-collapsed .sidebar-header {
   justify-content: center;
+}
+
+.app-sidebar.is-collapsed .sidebar-toggle {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: white;
+}
+
+.app-sidebar.is-collapsed .sidebar-toggle:hover {
+  background: var(--accent-dark);
 }
 
 .sidebar-header {
@@ -298,11 +311,18 @@ body.page-scroll .app-shell {
   gap: 4px;
 }
 
+.session-row {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+
 .session-item {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  width: 100%;
   padding: 7px 9px;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
@@ -311,6 +331,70 @@ body.page-scroll .app-shell {
   text-align: left;
   cursor: pointer;
   transition: background var(--transition), border-color var(--transition);
+}
+
+.session-menu-trigger {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  align-self: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.session-menu-trigger:hover,
+.session-menu-trigger[aria-expanded="true"] {
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+.session-menu-trigger svg {
+  width: 14px;
+  height: 14px;
+}
+
+.session-menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 130px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+}
+
+.session-menu-item {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.session-menu-item:hover {
+  background: var(--surface-soft);
+}
+
+.session-menu-item.is-danger {
+  color: var(--danger);
+}
+
+.session-menu-item.is-danger:hover {
+  background: var(--danger-soft);
 }
 
 .session-item:hover {

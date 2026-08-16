@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     last_active_at TEXT NOT NULL,
     ended_at TEXT,
     resolved_config_json TEXT,
-    session_override_json TEXT
+    session_override_json TEXT,
+    deleted_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS turns (
@@ -75,6 +76,19 @@ def _connect(db_path: str | Path) -> sqlite3.Connection:
     return connection
 
 
+def _migrate(connection: sqlite3.Connection) -> None:
+    """Lightweight, additive migrations for columns added after initial release.
+
+    `CREATE TABLE IF NOT EXISTS` in `SCHEMA` never touches an existing table,
+    so a column added later needs an explicit `ALTER TABLE` here to reach
+    databases created before that column existed.
+    """
+
+    columns = {row["name"] for row in connection.execute("PRAGMA table_info(sessions)")}
+    if "deleted_at" not in columns:
+        connection.execute("ALTER TABLE sessions ADD COLUMN deleted_at TEXT")
+
+
 def init_db(db_path: str | Path) -> None:
     """Create the database file and schema if they do not already exist.
 
@@ -87,6 +101,7 @@ def init_db(db_path: str | Path) -> None:
     connection = _connect(path)
     try:
         connection.executescript(SCHEMA)
+        _migrate(connection)
         connection.commit()
     finally:
         connection.close()
