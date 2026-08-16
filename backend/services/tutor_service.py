@@ -108,6 +108,46 @@ class TutorService:
             raise TutorServiceError("Ollama returned an empty response.")
         return content
 
+    def generate_session_title(
+        self, transcription: str, response: str, timeout: float = 15.0
+    ) -> str | None:
+        """Best-effort short title summarizing what a session is about.
+
+        Meant to be called once, right after a session's first turn. Returns
+        None on any failure — callers must treat a title as optional
+        polish, never block the actual lesson turn on it.
+        """
+
+        prompt = (
+            "Write a short 3-6 word title summarizing what this "
+            "conversation is about, based on what the student said. No "
+            "punctuation at the end, no quotation marks — just the title "
+            "text, nothing else.\n\n"
+            f"Student said: {transcription}\n"
+            f"Tutor replied: {response}"
+        )
+
+        try:
+            api_response = requests.post(
+                OLLAMA_URL,
+                json={
+                    "model": self.model_name,
+                    "stream": False,
+                    "think": False,
+                    "keep_alive": "30m",
+                    "options": {"temperature": 0.3, "num_predict": 20},
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+                timeout=timeout,
+            )
+            api_response.raise_for_status()
+        except requests.RequestException:
+            return None
+
+        content = api_response.json().get("message", {}).get("content", "")
+        title = content.strip().strip("\"'").strip()
+        return title or None
+
     def _parse_and_validate(self, content: str) -> TeacherReply:
         parsed = json.loads(content)  # may raise json.JSONDecodeError
         return TeacherReply.model_validate(parsed)  # may raise pydantic.ValidationError

@@ -16,6 +16,7 @@ interface PersistedSession {
   sessionId: string;
   turns: ConversationTurn[];
   feedback: TutorFeedback | null;
+  lockedTutorId: string | null;
 }
 
 function loadPersistedSession(): PersistedSession | null {
@@ -28,6 +29,7 @@ function loadPersistedSession(): PersistedSession | null {
       sessionId: parsed.sessionId,
       turns: Array.isArray(parsed.turns) ? parsed.turns : [],
       feedback: parsed.feedback ?? null,
+      lockedTutorId: parsed.lockedTutorId ?? null,
     };
   } catch {
     return null;
@@ -58,9 +60,10 @@ interface UseTutorResult {
   turns: ConversationTurn[];
   feedback: TutorFeedback | null;
   timings: TutorTimings | null;
+  lockedTutorId: string | null;
   submit: (recording: RecordingResult) => Promise<TutorResponse>;
   startNewSession: () => void;
-  loadSessionTurns: (sessionId: string, sessionTurns: SessionTurn[]) => void;
+  loadSessionTurns: (sessionId: string, sessionTurns: SessionTurn[], tutorId: string) => void;
 }
 
 export function useTutor(): UseTutorResult {
@@ -70,6 +73,7 @@ export function useTutor(): UseTutorResult {
   const [turns, setTurns] = useState<ConversationTurn[]>(initial?.turns ?? []);
   const [feedback, setFeedback] = useState<TutorFeedback | null>(initial?.feedback ?? null);
   const [timings, setTimings] = useState<TutorTimings | null>(null);
+  const [lockedTutorId, setLockedTutorId] = useState<string | null>(initial?.lockedTutorId ?? null);
 
   const submit = useCallback(
     async (recording: RecordingResult): Promise<TutorResponse> => {
@@ -100,7 +104,13 @@ export function useTutor(): UseTutorResult {
       setTurns(nextTurns);
       setFeedback(nextFeedback);
       setTimings(data.timings);
-      persistSession({ sessionId: resolvedSessionId, turns: nextTurns, feedback: nextFeedback });
+      setLockedTutorId(data.tutor_id);
+      persistSession({
+        sessionId: resolvedSessionId,
+        turns: nextTurns,
+        feedback: nextFeedback,
+        lockedTutorId: data.tutor_id,
+      });
 
       return data;
     },
@@ -113,26 +123,40 @@ export function useTutor(): UseTutorResult {
     setTurns([]);
     setFeedback(null);
     setTimings(null);
-    persistSession({ sessionId: id, turns: [], feedback: null });
+    setLockedTutorId(null);
+    persistSession({ sessionId: id, turns: [], feedback: null, lockedTutorId: null });
   }, []);
 
-  const loadSessionTurns = useCallback((id: string, sessionTurns: SessionTurn[]) => {
-    const nextTurns = sessionTurns.flatMap(turnToMessages);
-    const lastTurn = sessionTurns[sessionTurns.length - 1];
-    const nextFeedback: TutorFeedback | null = lastTurn
-      ? {
-          corrections: lastTurn.corrections,
-          naturalVersion: lastTurn.natural_version,
-          vocabulary: lastTurn.vocabulary,
-        }
-      : null;
+  const loadSessionTurns = useCallback(
+    (id: string, sessionTurns: SessionTurn[], tutorId: string) => {
+      const nextTurns = sessionTurns.flatMap(turnToMessages);
+      const lastTurn = sessionTurns[sessionTurns.length - 1];
+      const nextFeedback: TutorFeedback | null = lastTurn
+        ? {
+            corrections: lastTurn.corrections,
+            naturalVersion: lastTurn.natural_version,
+            vocabulary: lastTurn.vocabulary,
+          }
+        : null;
 
-    setSessionId(id);
-    setTurns(nextTurns);
-    setFeedback(nextFeedback);
-    setTimings(null);
-    persistSession({ sessionId: id, turns: nextTurns, feedback: nextFeedback });
-  }, []);
+      setSessionId(id);
+      setTurns(nextTurns);
+      setFeedback(nextFeedback);
+      setTimings(null);
+      setLockedTutorId(tutorId);
+      persistSession({ sessionId: id, turns: nextTurns, feedback: nextFeedback, lockedTutorId: tutorId });
+    },
+    [],
+  );
 
-  return { sessionId, turns, feedback, timings, submit, startNewSession, loadSessionTurns };
+  return {
+    sessionId,
+    turns,
+    feedback,
+    timings,
+    lockedTutorId,
+    submit,
+    startNewSession,
+    loadSessionTurns,
+  };
 }

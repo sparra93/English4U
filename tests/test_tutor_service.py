@@ -187,6 +187,30 @@ class TutorServiceAskTests(unittest.TestCase):
         sent_messages = mock_post.call_args.kwargs["json"]["messages"]
         self.assertIn("curious and conversational", sent_messages[0]["content"])
 
+    def test_generate_session_title_returns_stripped_content(self) -> None:
+        mock_response = _ollama_response('  "Tired After A Long Work Day"  ')
+
+        with patch("backend.services.tutor_service.requests.post", return_value=mock_response):
+            title = self.service.generate_session_title(
+                "I was really tired yesterday.", "That sounds exhausting."
+            )
+
+        self.assertEqual(title, "Tired After A Long Work Day")
+
+    def test_generate_session_title_returns_none_on_request_failure(self) -> None:
+        with patch("backend.services.tutor_service.requests.post", side_effect=requests.Timeout):
+            title = self.service.generate_session_title("hi", "hello")
+
+        self.assertIsNone(title)
+
+    def test_generate_session_title_returns_none_for_blank_content(self) -> None:
+        mock_response = _ollama_response("   ")
+
+        with patch("backend.services.tutor_service.requests.post", return_value=mock_response):
+            title = self.service.generate_session_title("hi", "hello")
+
+        self.assertIsNone(title)
+
     def test_generation_options_favor_conversational_variation(self) -> None:
         mock_response = _ollama_response(json.dumps(VALID_PAYLOAD))
 

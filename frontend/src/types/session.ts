@@ -3,6 +3,7 @@ export interface SessionSummary {
   started_at: string;
   last_active_at: string;
   turn_count: number;
+  title: string | null;
 }
 
 export interface SessionsResponse {
@@ -21,6 +22,7 @@ export interface SessionTurn {
 
 export interface SessionTurnsResponse {
   session_id: string;
+  tutor_id: string;
   turns: SessionTurn[];
 }
 

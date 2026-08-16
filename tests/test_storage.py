@@ -14,7 +14,12 @@ from backend.storage.learner_repository import (
     update_learner_preferences,
     update_learner_tutor,
 )
-from backend.storage.session_repository import get_or_create_session, touch_session
+from backend.storage.session_repository import (
+    get_or_create_session,
+    get_session,
+    set_session_title,
+    touch_session,
+)
 from backend.storage.turn_repository import get_recent_turns, insert_turn
 
 
@@ -156,6 +161,36 @@ class LearnerTutorIdMigrationTests(StorageTestCase):
         self.assertIsNone(learner.tutor_id)
 
 
+class SessionTutorIdAndTitleMigrationTests(StorageTestCase):
+    def test_init_db_adds_tutor_id_and_title_to_a_pre_existing_sessions_table(self) -> None:
+        connection = sqlite3.connect(self.db_path)
+        try:
+            connection.execute(
+                """
+                CREATE TABLE sessions (
+                    session_id TEXT PRIMARY KEY,
+                    learner_id TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    last_active_at TEXT NOT NULL,
+                    ended_at TEXT,
+                    resolved_config_json TEXT,
+                    session_override_json TEXT,
+                    deleted_at TEXT
+                )
+                """
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        init_db(self.db_path)  # must not raise, and must add the missing columns
+
+        learner = get_or_create_default_learner(self.db_path)
+        session = get_or_create_session(self.db_path, "sess-1", learner.learner_id)
+        self.assertIsNone(session.tutor_id)
+        self.assertIsNone(session.title)
+
+
 class SessionRepositoryTests(StorageTestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -183,6 +218,35 @@ class SessionRepositoryTests(StorageTestCase):
             connection.close()
 
         self.assertIn('"correction_mode":"after_response"', row[0].replace(" ", ""))
+
+    def test_tutor_id_is_set_on_first_creation(self) -> None:
+        session = get_or_create_session(
+            self.db_path, "sess-1", self.learner.learner_id, tutor_id="james"
+        )
+        self.assertEqual(session.tutor_id, "james")
+
+    def test_tutor_id_is_locked_after_first_creation(self) -> None:
+        get_or_create_session(self.db_path, "sess-1", self.learner.learner_id, tutor_id="james")
+        # A later call with a different tutor_id (e.g. the learner changed
+        # their default pick for the *next* chat) must not change this
+        # already-existing session's locked tutor.
+        second = get_or_create_session(
+            self.db_path, "sess-1", self.learner.learner_id, tutor_id="sophia"
+        )
+        self.assertEqual(second.tutor_id, "james")
+
+    def test_get_session_returns_none_for_unknown_id(self) -> None:
+        self.assertIsNone(get_session(self.db_path, "does-not-exist"))
+
+    def test_get_session_reflects_stored_tutor_and_title(self) -> None:
+        get_or_create_session(self.db_path, "sess-1", self.learner.learner_id, tutor_id="nicole")
+        set_session_title(self.db_path, "sess-1", "Talking about a tough meeting")
+
+        session = get_session(self.db_path, "sess-1")
+
+        self.assertIsNotNone(session)
+        self.assertEqual(session.tutor_id, "nicole")
+        self.assertEqual(session.title, "Talking about a tough meeting")
 
 
 class TurnRepositoryTests(StorageTestCase):

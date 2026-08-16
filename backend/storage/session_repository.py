@@ -18,6 +18,8 @@ class SessionRecord:
     resolved_config_json: str | None
     session_override_json: str | None
     deleted_at: str | None
+    tutor_id: str | None
+    title: str | None
 
 
 @dataclass
@@ -26,6 +28,7 @@ class SessionSummary:
     started_at: str
     last_active_at: str
     turn_count: int
+    title: str | None
 
 
 def _row_to_record(row: object) -> SessionRecord:
@@ -38,16 +41,35 @@ def _row_to_record(row: object) -> SessionRecord:
         resolved_config_json=row["resolved_config_json"],
         session_override_json=row["session_override_json"],
         deleted_at=row["deleted_at"],
+        tutor_id=row["tutor_id"],
+        title=row["title"],
     )
 
 
+def get_session(db_path: str | Path, session_id: str) -> SessionRecord | None:
+    """Read-only lookup — unlike `get_or_create_session`, never creates a row."""
+
+    with session_scope(db_path) as connection:
+        row = connection.execute(
+            "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
+        ).fetchone()
+
+    return _row_to_record(row) if row is not None else None
+
+
 def get_or_create_session(
-    db_path: str | Path, session_id: str, learner_id: str
+    db_path: str | Path, session_id: str, learner_id: str, tutor_id: str | None = None
 ) -> SessionRecord:
     """Idempotent: returns the existing session, or opens a new one.
 
     A "session" spans one browser tab's lifetime (see `backend/static/app.js`),
     so this is also the window future recent-turn memory reads from.
+
+    `tutor_id` is only written on first creation — once a session exists,
+    its tutor is locked for the rest of the conversation, regardless of
+    what the learner later picks as their default for the *next* chat. A
+    session created before this locking existed simply keeps `tutor_id`
+    NULL, which callers resolve via the catalog's default fallback.
     """
 
     with session_scope(db_path) as connection:
@@ -61,15 +83,29 @@ def get_or_create_session(
         now = datetime.now(timezone.utc).isoformat()
         connection.execute(
             """
-            INSERT OR IGNORE INTO sessions (session_id, learner_id, started_at, last_active_at)
-            VALUES (?, ?, ?, ?)
+            INSERT OR IGNORE INTO sessions (session_id, learner_id, started_at, last_active_at, tutor_id)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (session_id, learner_id, now, now),
+            (session_id, learner_id, now, now, tutor_id),
         )
         row = connection.execute(
             "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
         ).fetchone()
         return _row_to_record(row)
+
+
+def set_session_title(db_path: str | Path, session_id: str, title: str) -> None:
+    """Persist a short, descriptive title for a session.
+
+    Intended to be set once, from the session's first turn — not
+    re-generated on every turn.
+    """
+
+    with session_scope(db_path) as connection:
+        connection.execute(
+            "UPDATE sessions SET title = ? WHERE session_id = ?",
+            (title, session_id),
+        )
 
 
 def list_sessions_for_learner(
@@ -88,6 +124,7 @@ def list_sessions_for_learner(
                 sessions.session_id AS session_id,
                 sessions.started_at AS started_at,
                 sessions.last_active_at AS last_active_at,
+                sessions.title AS title,
                 COUNT(turns.turn_id) AS turn_count
             FROM sessions
             JOIN turns ON turns.session_id = sessions.session_id
@@ -105,6 +142,7 @@ def list_sessions_for_learner(
             started_at=row["started_at"],
             last_active_at=row["last_active_at"],
             turn_count=row["turn_count"],
+            title=row["title"],
         )
         for row in rows
     ]

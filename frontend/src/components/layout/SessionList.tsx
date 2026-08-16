@@ -34,8 +34,8 @@ export function SessionList({ collapsed }: SessionListProps) {
     if (id === sessionId) return;
     setPendingId(id);
     try {
-      const turns = await sessions.switchSession(id);
-      loadSessionTurns(id, turns);
+      const data = await sessions.switchSession(id);
+      loadSessionTurns(id, data.turns, data.tutor_id);
     } catch {
       // Non-critical: leave the current conversation untouched.
     } finally {
@@ -110,9 +110,10 @@ export function SessionList({ collapsed }: SessionListProps) {
                   }}
                 >
                   <Text size="sm" fw={600} truncate="end">
-                    {formatDateTime(session.last_active_at)}
+                    {session.title ?? formatDateTime(session.last_active_at)}
                   </Text>
                   <Text size="xs" c="dimmed">
+                    {formatDateTime(session.last_active_at)} ·{" "}
                     {session.turn_count === 1 ? "1 turn" : `${session.turn_count} turns`}
                   </Text>
                 </UnstyledButton>

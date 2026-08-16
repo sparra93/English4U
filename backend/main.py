@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import tempfile
 import time
@@ -99,7 +100,9 @@ def _load_local_data_layer() -> dict[str, object]:
     )
     from backend.storage.session_repository import (
         get_or_create_session,
+        get_session,
         list_sessions_for_learner,
+        set_session_title,
         soft_delete_session,
         touch_session,
     )
@@ -119,6 +122,8 @@ def _load_local_data_layer() -> dict[str, object]:
         "get_or_create_default_learner": get_or_create_default_learner,
         "update_learner_tutor": update_learner_tutor,
         "get_or_create_session": get_or_create_session,
+        "get_session": get_session,
+        "set_session_title": set_session_title,
         "list_sessions_for_learner": list_sessions_for_learner,
         "soft_delete_session": soft_delete_session,
         "touch_session": touch_session,
@@ -333,6 +338,7 @@ async def sessions_list() -> JSONResponse:
                     "started_at": summary.started_at,
                     "last_active_at": summary.last_active_at,
                     "turn_count": summary.turn_count,
+                    "title": summary.title,
                 }
                 for summary in summaries
             ],
@@ -350,10 +356,13 @@ async def session_turns(session_id: str) -> JSONResponse:
 
     data_layer = app.state.data_layer
     turns = data_layer["get_turns_for_session"](settings.db_path, session_id)
+    session = data_layer["get_session"](settings.db_path, session_id)
+    tutor_id = get_tutor(session.tutor_id if session else None).id
 
     return JSONResponse(
         {
             "session_id": session_id,
+            "tutor_id": tutor_id,
             "turns": [
                 {
                     "turn_id": turn.turn_id,
@@ -555,8 +564,15 @@ async def tutor(
             raise HTTPException(status_code=400, detail="The recording was empty.")
 
         learner = data_layer["get_or_create_default_learner"](settings.db_path)
-        tutor = get_tutor(learner.tutor_id)
-        data_layer["get_or_create_session"](settings.db_path, resolved_session_id, learner.learner_id)
+        preferred_tutor = get_tutor(learner.tutor_id)
+        session = data_layer["get_or_create_session"](
+            settings.db_path, resolved_session_id, learner.learner_id, tutor_id=preferred_tutor.id
+        )
+        # The tutor is locked in on a session's first turn (see
+        # `get_or_create_session`) and never changes for the rest of that
+        # conversation, even if the learner later picks a different default
+        # for their *next* chat.
+        tutor = get_tutor(session.tutor_id)
         resolved_config = data_layer["resolve_teaching_config"](
             session_override=session_override,
             learner_preference=learner.to_override(),
@@ -601,12 +617,29 @@ async def tutor(
             teaching_config_override,
         )
 
+        if not recent_turns:
+            # This was the session's first turn — generate a one-time
+            # descriptive title for the sidebar. Best-effort: a failure here
+            # must never break the actual lesson turn the student is
+            # waiting on.
+            try:
+                title = tutor_service.generate_session_title(
+                    whisper_result.transcription, tutor_result.response
+                )
+                if title:
+                    data_layer["set_session_title"](settings.db_path, resolved_session_id, title)
+            except Exception:
+                logging.getLogger(__name__).warning(
+                    "Session title generation failed for %s", resolved_session_id, exc_info=True
+                )
+
         total_seconds = time.perf_counter() - started_at
 
         return JSONResponse(
             {
                 "transcription": whisper_result.transcription,
                 "response": tutor_result.response,
+                "tutor_id": tutor.id,
                 "corrections": tutor_result.corrections,
                 "natural_version": tutor_result.natural_version,
                 "vocabulary": tutor_result.vocabulary,

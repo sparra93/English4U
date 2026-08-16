@@ -32,7 +32,9 @@ CREATE TABLE IF NOT EXISTS sessions (
     ended_at TEXT,
     resolved_config_json TEXT,
     session_override_json TEXT,
-    deleted_at TEXT
+    deleted_at TEXT,
+    tutor_id TEXT,
+    title TEXT
 );
 
 CREATE TABLE IF NOT EXISTS turns (
@@ -88,6 +90,10 @@ def _migrate(connection: sqlite3.Connection) -> None:
     session_columns = {row["name"] for row in connection.execute("PRAGMA table_info(sessions)")}
     if "deleted_at" not in session_columns:
         connection.execute("ALTER TABLE sessions ADD COLUMN deleted_at TEXT")
+    if "tutor_id" not in session_columns:
+        connection.execute("ALTER TABLE sessions ADD COLUMN tutor_id TEXT")
+    if "title" not in session_columns:
+        connection.execute("ALTER TABLE sessions ADD COLUMN title TEXT")
 
     learner_columns = {row["name"] for row in connection.execute("PRAGMA table_info(learners)")}
     if "tutor_id" not in learner_columns:

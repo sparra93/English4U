@@ -29,9 +29,14 @@ class FakeTutorService:
 
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []
+        self.title_calls: list[dict[str, object]] = []
 
     def check_health(self) -> bool:
         return True
+
+    def generate_session_title(self, transcription, response):  # noqa: ANN001
+        self.title_calls.append({"transcription": transcription, "response": response})
+        return "A generated conversation title"
 
     def ask(
         self, transcription, config, learner, recent_turns, tutor_name="Emma", tutor_behavior_prompt=""
@@ -251,6 +256,60 @@ class ApiTutorEndpointTests(unittest.TestCase):
         tts_service = self.main_module.app.state.tts
         self.assertEqual(tts_service.calls[-1]["voice"], "af_heart")
         self.assertEqual(tts_service.calls[-1]["lang_code"], "a")
+
+    def test_response_includes_the_resolved_tutor_id(self) -> None:
+        response = self._post_audio()
+        self.assertEqual(response.json()["tutor_id"], "emma")
+
+    def test_tutor_is_locked_to_the_session_after_the_first_turn(self) -> None:
+        first_response = self._post_audio()
+        session_id = first_response.json()["session_id"]
+        self.assertEqual(first_response.json()["tutor_id"], "emma")
+
+        # Changing the learner's default tutor mid-conversation must not
+        # affect a session that already has a locked-in tutor.
+        self.client.put("/api/learner/tutor", json={"tutor_id": "james"})
+        second_response = self._post_audio(session_id=session_id)
+
+        self.assertEqual(second_response.json()["tutor_id"], "emma")
+        tutor_service = self.main_module.app.state.tutor
+        self.assertEqual(tutor_service.calls[-1]["tutor_name"], "Emma")
+
+        # A brand-new session, though, should pick up the new default.
+        third_response = self._post_audio()
+        self.assertEqual(third_response.json()["tutor_id"], "james")
+
+    def test_first_turn_generates_and_persists_a_session_title(self) -> None:
+        response = self._post_audio()
+        session_id = response.json()["session_id"]
+
+        tutor_service = self.main_module.app.state.tutor
+        self.assertEqual(len(tutor_service.title_calls), 1)
+
+        sessions = self.client.get("/api/sessions").json()["sessions"]
+        matching = next(s for s in sessions if s["session_id"] == session_id)
+        self.assertEqual(matching["title"], "A generated conversation title")
+
+    def test_second_turn_does_not_regenerate_the_title(self) -> None:
+        first_response = self._post_audio()
+        session_id = first_response.json()["session_id"]
+
+        self._post_audio(session_id=session_id)
+
+        tutor_service = self.main_module.app.state.tutor
+        self.assertEqual(len(tutor_service.title_calls), 1)
+
+    def test_session_turns_endpoint_includes_the_locked_tutor_id(self) -> None:
+        self.client.put("/api/learner/tutor", json={"tutor_id": "sophia"})
+        response = self._post_audio()
+        session_id = response.json()["session_id"]
+
+        turns_response = self.client.get(f"/api/sessions/{session_id}/turns")
+        self.assertEqual(turns_response.json()["tutor_id"], "sophia")
+
+    def test_session_turns_endpoint_defaults_tutor_id_for_unknown_session(self) -> None:
+        response = self.client.get("/api/sessions/does-not-exist/turns")
+        self.assertEqual(response.json()["tutor_id"], "emma")
 
     def test_selected_tutor_behavior_prompt_reaches_the_tutor_service(self) -> None:
         self.client.put("/api/learner/tutor", json={"tutor_id": "james"})

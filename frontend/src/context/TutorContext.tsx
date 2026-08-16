@@ -13,7 +13,7 @@ const TutorContext = createContext<TutorContextValue | null>(null);
 export function TutorProvider({ children }: { children: ReactNode }) {
   const tutor = useTutor();
   const sessions = useSessions();
-  const profile = useTutorProfile();
+  const profile = useTutorProfile(tutor.lockedTutorId);
 
   return (
     <TutorContext.Provider value={{ ...tutor, sessions, profile }}>

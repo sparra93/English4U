@@ -8,6 +8,7 @@ export interface TutorTimings {
 export interface TutorResponse {
   transcription: string;
   response: string;
+  tutor_id: string;
   corrections: string;
   natural_version: string;
   vocabulary: string;

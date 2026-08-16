@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { deleteSession, fetchSessions, fetchSessionTurns } from "../services/sessionsApi";
-import type { SessionSummary, SessionTurn } from "../types/session";
+import type { SessionSummary, SessionTurnsResponse } from "../types/session";
 import { ApiError } from "../services/httpClient";
 
 interface UseSessionsResult {
   sessions: SessionSummary[];
   refresh: () => Promise<void>;
-  switchSession: (sessionId: string) => Promise<SessionTurn[]>;
+  switchSession: (sessionId: string) => Promise<SessionTurnsResponse>;
   removeSession: (sessionId: string) => Promise<void>;
 }
 
@@ -26,9 +26,8 @@ export function useSessions(): UseSessionsResult {
     void refresh();
   }, [refresh]);
 
-  const switchSession = useCallback(async (sessionId: string): Promise<SessionTurn[]> => {
-    const data = await fetchSessionTurns(sessionId);
-    return data.turns;
+  const switchSession = useCallback(async (sessionId: string): Promise<SessionTurnsResponse> => {
+    return fetchSessionTurns(sessionId);
   }, []);
 
   const removeSession = useCallback(async (sessionId: string) => {
