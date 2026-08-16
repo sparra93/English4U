@@ -3,6 +3,7 @@ import { ActionIcon, Group, ScrollArea, Stack, Text, UnstyledButton } from "@man
 import { Plus } from "lucide-react";
 import { useTutorContext } from "../../context/TutorContext";
 import { SessionMenu } from "./SessionMenu";
+import { ConfirmDeleteSessionModal } from "./ConfirmDeleteSessionModal";
 import { formatDateTime } from "../../utils/format";
 
 interface SessionListProps {
@@ -12,6 +13,7 @@ interface SessionListProps {
 export function SessionList({ collapsed }: SessionListProps) {
   const { sessionId, startNewSession, loadSessionTurns, sessions } = useTutorContext();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   if (collapsed) {
     return (
@@ -41,11 +43,10 @@ export function SessionList({ collapsed }: SessionListProps) {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    const confirmed = window.confirm(
-      "Delete this session? It will disappear from your session list, but it won't affect your progress stats.",
-    );
-    if (!confirmed) return;
+  const handleConfirmDelete = async () => {
+    const id = deleteTargetId;
+    setDeleteTargetId(null);
+    if (!id) return;
 
     try {
       await sessions.removeSession(id);
@@ -115,12 +116,18 @@ export function SessionList({ collapsed }: SessionListProps) {
                     {session.turn_count === 1 ? "1 turn" : `${session.turn_count} turns`}
                   </Text>
                 </UnstyledButton>
-                <SessionMenu onDelete={() => void handleDelete(session.session_id)} />
+                <SessionMenu onDelete={() => setDeleteTargetId(session.session_id)} />
               </Group>
             ))
           )}
         </Stack>
       </ScrollArea>
+
+      <ConfirmDeleteSessionModal
+        opened={deleteTargetId !== null}
+        onCancel={() => setDeleteTargetId(null)}
+        onConfirm={() => void handleConfirmDelete()}
+      />
     </Stack>
   );
 }
