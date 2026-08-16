@@ -1,0 +1,126 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+@keyframes typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes mic-halo {
+  0% {
+    transform: scale(0.94);
+    opacity: 0.9;
+  }
+
+  70%,
+  100% {
+    transform: scale(1.12);
+    opacity: 0;
+  }
+}
+
+@keyframes level-bar {
+  from {
+    transform: scaleY(var(--level-from, 0.2));
+  }
+
+  to {
+    transform: scaleY(var(--level-to, 1));
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.lesson-grid {
+  display: grid;
+  gap: 24px;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "teacher notes"
+    "conversation notes"
+    "speaking notes";
+}
+
+.lesson-grid__teacher {
+  grid-area: teacher;
+}
+
+.lesson-grid__conversation {
+  grid-area: conversation;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.lesson-grid__notes {
+  grid-area: notes;
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--mantine-color-gray-3);
+  padding-left: 24px;
+}
+
+.lesson-grid__speaking {
+  grid-area: speaking;
+}
+
+@media (max-width: 900px) {
+  .lesson-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+    grid-template-areas:
+      "teacher"
+      "conversation"
+      "notes"
+      "speaking";
+  }
+
+  .lesson-grid__conversation {
+    overflow-y: visible;
+  }
+
+  .lesson-grid__notes {
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px solid var(--mantine-color-gray-3);
+    padding-top: 16px;
+    overflow-y: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

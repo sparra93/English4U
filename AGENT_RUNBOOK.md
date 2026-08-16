@@ -201,3 +201,27 @@ Cliente proxy en otra maquina:
 ```dotenv
 REMOTE_BACKEND_BASE_URL=https://tu-servidor.tu-tailnet.ts.net
 ```
+
+## Frontend en React (en desarrollo, no reemplaza `app/static/` todavia)
+
+Existe una migracion en progreso a React + TypeScript + Vite + Mantine en
+`frontend/`. `app/static/` (vanilla HTML/CSS/JS) sigue siendo el frontend de
+produccion y no se toca hasta que el de React quede validado. El backend no
+cambio: ambos frontends hablan con la misma API (`/api/*`, `/generated/*`).
+
+Para levantar el frontend de React en desarrollo, en dos terminales:
+
+```bash
+# Terminal 1: backend en HTTP plano (sin el certificado autofirmado de dev.sh)
+venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090 --reload
+
+# Terminal 2: Vite, con proxy de /api y /generated hacia :8090
+cd frontend
+npm install
+npm run dev   # http://localhost:5173
+```
+
+`http://localhost` se trata como contexto seguro por el navegador, asi que el
+microfono funciona sin HTTPS local en este modo. No hace falta usar `dev.sh`
+para el frontend de React (ese script sigue sirviendo solo el vanilla con
+HTTPS).

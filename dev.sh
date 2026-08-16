@@ -65,6 +65,11 @@ main() {
   printf 'Reload watch:\napp/\n\n'
   printf 'Certificate files:\n%s\n%s\n\n' "$CERT_FILE" "$KEY_FILE"
   printf 'Browser note:\naccept or trust the local certificate the first time to enable microphone access.\n\n'
+  printf 'React frontend (in development, app/static/ is still the production frontend):\n'
+  printf 'This script only starts the backend. In another terminal, run the plain-HTTP\n'
+  printf 'backend the React dev proxy expects, then start Vite:\n\n'
+  printf '  %s/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090 --reload\n' "$PROJECT_DIR"
+  printf '  cd %s/frontend \&\& npm install \&\& npm run dev   # http://localhost:5173\n\n' "$PROJECT_DIR"
   printf 'Press Ctrl+C to stop development server.\n\n'
 
   exec "$PYTHON_BIN" -m uvicorn "$APP_MODULE" \

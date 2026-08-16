@@ -143,9 +143,17 @@ def _init_optional_service(
 
 
 def _proxy_json(method: str, path: str, **kwargs: object) -> JSONResponse:
+    """Forward a request to the remote backend and relay its response as-is.
+
+    Only a genuine connection failure (DNS, refused, TLS, timeout) becomes a
+    502/504 here — a response that reached us with an error status (400 for
+    an empty transcription, 404 for a missing session, ...) is real signal
+    from the remote server and must reach the caller unchanged, not be
+    swallowed into a generic "server unavailable".
+    """
+
     try:
         response = requests.request(method, _remote_url(path), timeout=300, **kwargs)
-        response.raise_for_status()
     except requests.Timeout as exc:
         raise HTTPException(status_code=504, detail="The remote tutor server timed out.") from exc
     except requests.RequestException as exc:
