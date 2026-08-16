@@ -112,6 +112,12 @@ Script recomendado para este equipo:
 ./server.sh
 ```
 
+Compatibilidad adicional:
+
+```bash
+./server
+```
+
 ### Cliente proxy
 
 En un equipo que solo usara la UI y enviara todo al servidor central, instala solo las dependencias minimas:
@@ -140,6 +146,25 @@ Si esta maquina sera el servidor central para otros clientes, usa preferentement
 
 ```bash
 ./server.sh
+```
+
+`server.sh` intenta configurar Tailscale Serve por defecto, pero si `tailscale`
+no esta instalado no aborta el servidor local.
+
+```bash
+ENABLE_TAILSCALE_SERVE=1 ./server.sh
+```
+
+Si quieres desactivar Tailscale Serve:
+
+```bash
+ENABLE_TAILSCALE_SERVE=0 ./server.sh
+```
+
+Si quieres forzar modo offline para modelos de Hugging Face:
+
+```bash
+HF_HUB_OFFLINE=1 ./server.sh
 ```
 
 Abrir en el navegador:

@@ -22,6 +22,10 @@ TAILSCALE_SERVE_PORT="${TAILSCALE_SERVE_PORT:-443}"
 TAILSCALE_TARGET_URL="http://127.0.0.1:${PORT}"
 TAILSCALE_SERVE_STRICT="${TAILSCALE_SERVE_STRICT:-0}"
 SERVER_START_TIMEOUT_SECONDS="${SERVER_START_TIMEOUT_SECONDS:-30}"
+HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-0}"
+HF_HUB_DISABLE_TELEMETRY="${HF_HUB_DISABLE_TELEMETRY:-1}"
+
+PYTHON_CMD=()
 
 require_file() {
   local path="$1"
@@ -47,6 +51,35 @@ check_command() {
   local command_name="$1"
 
   command -v "$command_name" >/dev/null 2>&1
+}
+
+resolve_python_command() {
+  if [[ -x "$PYTHON_BIN" ]] && "$PYTHON_BIN" -V >/dev/null 2>&1; then
+    PYTHON_CMD=("$PYTHON_BIN")
+    return 0
+  fi
+
+  local fallback_python
+  fallback_python="$(command -v python3 || true)"
+  if [[ -z "$fallback_python" ]]; then
+    printf 'Error: neither %s nor python3 is available.\n' "$PYTHON_BIN" >&2
+    exit 1
+  fi
+
+  local site_packages
+  site_packages="$(find "$PROJECT_DIR/venv/lib" -mindepth 2 -maxdepth 2 -type d -name site-packages 2>/dev/null | head -n 1)"
+  if [[ -z "$site_packages" ]]; then
+    printf 'Error: could not find venv site-packages for fallback Python startup.\n' >&2
+    exit 1
+  fi
+
+  if ! PYTHONPATH="$site_packages${PYTHONPATH:+:$PYTHONPATH}" "$fallback_python" -c 'import uvicorn' >/dev/null 2>&1; then
+    printf 'Error: fallback python3 could not import uvicorn from %s.\n' "$site_packages" >&2
+    exit 1
+  fi
+
+  PYTHON_CMD=("$fallback_python")
+  export PYTHONPATH="$site_packages${PYTHONPATH:+:$PYTHONPATH}"
 }
 
 wait_for_local_server() {
@@ -76,32 +109,46 @@ configure_tailscale_serve() {
   fi
 
   if ! check_command tailscale; then
-    printf 'Error: tailscale command not found but ENABLE_TAILSCALE_SERVE=1.\n' >&2
-    exit 1
+    if [[ "$TAILSCALE_SERVE_STRICT" == "1" ]]; then
+      printf 'Error: tailscale command not found but ENABLE_TAILSCALE_SERVE=1.\n' >&2
+      exit 1
+    fi
+
+    printf 'Warning: tailscale command not found; skipping Tailscale Serve.\n\n' >&2
+    return 0
   fi
 
   printf 'Tailscale Serve:\nhttps on port %s -> %s\n\n' "$TAILSCALE_SERVE_PORT" "$TAILSCALE_TARGET_URL"
 
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
-    timeout 10s tailscale serve --https="$TAILSCALE_SERVE_PORT" "$TAILSCALE_TARGET_URL"
+    tailscale serve --bg --yes --https="$TAILSCALE_SERVE_PORT" "$TAILSCALE_TARGET_URL"
     return 0
   fi
 
-  if sudo -n timeout 10s tailscale serve --https="$TAILSCALE_SERVE_PORT" "$TAILSCALE_TARGET_URL"; then
+  if sudo -n tailscale serve --bg --yes --https="$TAILSCALE_SERVE_PORT" "$TAILSCALE_TARGET_URL"; then
     return 0
+  fi
+
+  if [[ -t 0 && -t 1 ]]; then
+    printf 'Tailscale Serve needs sudo to publish the HTTPS endpoint.\n'
+    printf 'You may be prompted for your password now.\n\n'
+
+    if sudo tailscale serve --bg --yes --https="$TAILSCALE_SERVE_PORT" "$TAILSCALE_TARGET_URL"; then
+      return 0
+    fi
   fi
 
   if [[ "$TAILSCALE_SERVE_STRICT" == "1" ]]; then
     printf 'Error: could not configure Tailscale Serve automatically.\n' >&2
     printf 'Run this first, then retry:\n' >&2
-    printf 'sudo tailscale serve --https=%s %s\n' "$TAILSCALE_SERVE_PORT" "$TAILSCALE_TARGET_URL" >&2
+    printf 'sudo tailscale serve --bg --yes --https=%s %s\n' "$TAILSCALE_SERVE_PORT" "$TAILSCALE_TARGET_URL" >&2
     exit 1
   fi
 
   printf 'Warning: could not configure Tailscale Serve automatically.\n' >&2
   printf 'The central server will still start locally.\n' >&2
   printf 'Run this in another terminal if you want remote access through Tailscale:\n' >&2
-  printf 'sudo tailscale serve --https=%s %s\n\n' "$TAILSCALE_SERVE_PORT" "$TAILSCALE_TARGET_URL" >&2
+  printf 'sudo tailscale serve --bg --yes --https=%s %s\n\n' "$TAILSCALE_SERVE_PORT" "$TAILSCALE_TARGET_URL" >&2
 }
 
 check_ollama() {
@@ -129,7 +176,11 @@ cleanup() {
 
 main() {
   require_file "$PYTHON_BIN" "virtual environment Python not found at venv/bin/python"
-  require_executable "$PYTHON_BIN" "virtual environment Python is not executable at venv/bin/python"
+  resolve_python_command
+  export HF_HUB_DISABLE_TELEMETRY
+  if [[ -n "${HF_HUB_OFFLINE:-}" ]]; then
+    export HF_HUB_OFFLINE
+  fi
 
   if [[ -n "${REMOTE_BACKEND_BASE_URL:-}" ]]; then
     printf 'Error: REMOTE_BACKEND_BASE_URL is set.\n' >&2
@@ -142,13 +193,15 @@ main() {
   printf 'English AI Tutor - Central Server Mode\n\n'
   printf 'Backend:\nhttp://127.0.0.1:%s\n\n' "$PORT"
   printf 'Bind:\n%s:%s\n\n' "$HOST" "$PORT"
+  printf 'Python command:\n%s\n\n' "${PYTHON_CMD[*]}"
+  printf 'HF Hub offline:\n%s\n\n' "$HF_HUB_OFFLINE"
   printf 'Proxy mode:\ndisabled\n\n'
   printf 'HTTPS inside Uvicorn:\ndisabled\n\n'
   printf 'Press Ctrl+C to stop the central server.\n\n'
 
   trap cleanup EXIT INT TERM
 
-  "$PYTHON_BIN" -m uvicorn "$APP_MODULE" \
+  "${PYTHON_CMD[@]}" -m uvicorn "$APP_MODULE" \
     --host "$HOST" \
     --port "$PORT" &
   server_pid="$!"

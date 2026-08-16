@@ -71,6 +71,11 @@ class FakeTTSServiceError(RuntimeError):
     pass
 
 
+class BrokenTTSService:
+    def __init__(self) -> None:
+        raise FakeTTSServiceError("Kokoro model could not be loaded.")
+
+
 def _fake_local_service_classes() -> dict[str, object]:
     return {
         "whisper_service": FakeWhisperService,
@@ -78,6 +83,17 @@ def _fake_local_service_classes() -> dict[str, object]:
         "tutor_service": FakeTutorService,
         "tutor_error": TutorServiceError,
         "tts_service": FakeTTSService,
+        "tts_error": FakeTTSServiceError,
+    }
+
+
+def _broken_tts_service_classes() -> dict[str, object]:
+    return {
+        "whisper_service": FakeWhisperService,
+        "whisper_error": FakeWhisperServiceError,
+        "tutor_service": FakeTutorService,
+        "tutor_error": TutorServiceError,
+        "tts_service": BrokenTTSService,
         "tts_error": FakeTTSServiceError,
     }
 
@@ -173,6 +189,53 @@ class ApiTutorEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertTrue(body["database"])
+
+ 
+class ApiTutorEndpointStartupFailureTests(unittest.TestCase):
+    def setUp(self) -> None:
+        import app.main as main_module
+
+        self.main_module = main_module
+
+        self._tmp_dir = tempfile.TemporaryDirectory()
+        db_path = str(Path(self._tmp_dir.name) / "test.db")
+
+        self._settings_patch = patch.object(
+            main_module,
+            "settings",
+            dataclasses.replace(main_module.settings, db_path=db_path, remote_backend_base_url=""),
+        )
+        self._service_classes_patch = patch.object(
+            main_module,
+            "_load_local_service_classes",
+            _broken_tts_service_classes,
+        )
+
+        self._settings_patch.start()
+        self._service_classes_patch.start()
+
+        self.addCleanup(self._settings_patch.stop)
+        self.addCleanup(self._service_classes_patch.stop)
+        self.addCleanup(self._tmp_dir.cleanup)
+
+        self.client_cm = TestClient(main_module.app)
+        self.client = self.client_cm.__enter__()
+        self.addCleanup(lambda: self.client_cm.__exit__(None, None, None))
+
+    def test_startup_service_failure_degrades_health_and_returns_503(self) -> None:
+        health = self.client.get("/api/health")
+        self.assertEqual(health.status_code, 200)
+        health_body = health.json()
+        self.assertEqual(health_body["status"], "degraded")
+        self.assertFalse(health_body["tts"])
+        self.assertIn("Kokoro model could not be loaded.", health_body["startup_errors"]["tts"])
+
+        response = self.client.post(
+            "/api/tutor",
+            files={"audio": ("recording.webm", AUDIO_BYTES, "audio/webm")},
+        )
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("Kokoro model could not be loaded.", response.json()["detail"])
 
 
 if __name__ == "__main__":

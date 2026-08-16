@@ -90,7 +90,7 @@ Este script:
 
 - arranca FastAPI en HTTP local
 - evita mezclar HTTPS local con Tailscale Serve
-- configura `tailscale serve` si `ENABLE_TAILSCALE_SERVE=1`
+- intenta configurar `tailscale serve` si `ENABLE_TAILSCALE_SERVE=1`
 - falla si `REMOTE_BACKEND_BASE_URL` esta configurado
 
 Desarrollo con HTTPS:

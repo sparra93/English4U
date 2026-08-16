@@ -104,6 +104,22 @@ def _load_local_data_layer() -> dict[str, object]:
     }
 
 
+def _init_optional_service(
+    app: FastAPI,
+    state_name: str,
+    error_state_name: str,
+    service_factory: type,
+) -> None:
+    """Initialize a startup dependency without crashing the whole server."""
+
+    try:
+        setattr(app.state, state_name, service_factory())
+        setattr(app.state, error_state_name, None)
+    except Exception as exc:
+        setattr(app.state, state_name, None)
+        setattr(app.state, error_state_name, str(exc))
+
+
 def _proxy_json(method: str, path: str, **kwargs: object) -> JSONResponse:
     try:
         response = requests.request(method, _remote_url(path), timeout=300, **kwargs)
@@ -126,9 +142,24 @@ async def lifespan(app: FastAPI):
         data_layer = _load_local_data_layer()
         _cleanup_generated_audio()
         data_layer["init_db"](settings.db_path)
-        app.state.whisper = service_classes["whisper_service"]()
-        app.state.tutor = service_classes["tutor_service"]()
-        app.state.tts = service_classes["tts_service"]()
+        _init_optional_service(
+            app,
+            "whisper",
+            "whisper_startup_error",
+            service_classes["whisper_service"],
+        )
+        _init_optional_service(
+            app,
+            "tutor",
+            "tutor_startup_error",
+            service_classes["tutor_service"],
+        )
+        _init_optional_service(
+            app,
+            "tts",
+            "tts_startup_error",
+            service_classes["tts_service"],
+        )
         app.state.whisper_error_type = service_classes["whisper_error"]
         app.state.tutor_error_type = service_classes["tutor_error"]
         app.state.tts_error_type = service_classes["tts_error"]
@@ -174,8 +205,8 @@ async def health() -> JSONResponse:
     if _is_proxy_mode():
         return _proxy_json("GET", "/api/health")
 
-    whisper_ok = hasattr(app.state, "whisper")
-    tts_ok = hasattr(app.state, "tts")
+    whisper_ok = getattr(app.state, "whisper", None) is not None
+    tts_ok = getattr(app.state, "tts", None) is not None
     ollama_ok = False
 
     tutor_service = getattr(app.state, "tutor", None)
@@ -199,6 +230,11 @@ async def health() -> JSONResponse:
             "ollama": ollama_ok,
             "tts": tts_ok,
             "database": database_ok,
+            "startup_errors": {
+                "whisper": getattr(app.state, "whisper_startup_error", None),
+                "tutor": getattr(app.state, "tutor_startup_error", None),
+                "tts": getattr(app.state, "tts_startup_error", None),
+            },
         }
     )
 
@@ -261,8 +297,30 @@ async def tutor(
     tutor_error_type = getattr(app.state, "tutor_error_type", ())
     tts_error_type = getattr(app.state, "tts_error_type", ())
     data_layer = app.state.data_layer
+    whisper_service = getattr(app.state, "whisper", None)
+    tutor_service = getattr(app.state, "tutor", None)
+    tts_service = getattr(app.state, "tts", None)
 
     try:
+        if whisper_service is None:
+            raise HTTPException(
+                status_code=503,
+                detail=getattr(app.state, "whisper_startup_error", None)
+                or "Whisper is unavailable.",
+            )
+        if tutor_service is None:
+            raise HTTPException(
+                status_code=503,
+                detail=getattr(app.state, "tutor_startup_error", None)
+                or "Tutor service is unavailable.",
+            )
+        if tts_service is None:
+            raise HTTPException(
+                status_code=503,
+                detail=getattr(app.state, "tts_startup_error", None)
+                or "TTS service is unavailable.",
+            )
+
         if session_id and len(session_id) > MAX_SESSION_ID_LENGTH:
             raise HTTPException(status_code=400, detail="session_id is too long.")
         resolved_session_id = session_id or uuid.uuid4().hex
@@ -297,8 +355,8 @@ async def tutor(
             settings.db_path, resolved_session_id, settings.recent_turns_limit
         )
 
-        whisper_result = app.state.whisper.transcribe_file(upload_path)
-        tutor_result = app.state.tutor.ask(
+        whisper_result = whisper_service.transcribe_file(upload_path)
+        tutor_result = tutor_service.ask(
             whisper_result.transcription,
             resolved_config,
             learner,
@@ -307,7 +365,7 @@ async def tutor(
 
         output_name = f"{uuid.uuid4().hex}.wav"
         output_path = GENERATED_DIR / output_name
-        tts_result = app.state.tts.synthesize_to_file(
+        tts_result = tts_service.synthesize_to_file(
             tutor_result.voice_response,
             output_path,
         )
