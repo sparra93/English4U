@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.venv/
+
+# Local environment files
+.env
+.env.*
+.certs/
+
+# Generated audio and temporary media
+*.wav
+app/generated/
+
+# Local backups and editor swap files
+*-backup.py
+*.swp
+*.swo

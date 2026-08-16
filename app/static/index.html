@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>English AI Tutor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="lesson-shell">
+      <header class="topbar">
+        <div class="topbar-copy">
+          <p class="topbar-label">English AI Tutor</p>
+          <h1>Private Lesson</h1>
+        </div>
+
+        <div id="appStatus" class="status-pill" data-state="ready" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="appStatusLabel">Session Ready</span>
+        </div>
+      </header>
+
+      <section class="lesson-layout" aria-label="Private English lesson">
+        <section class="lesson-stage">
+          <div class="lesson-stage-inner">
+            <section class="teacher-panel" aria-labelledby="teacherName">
+              <div class="teacher-avatar" aria-hidden="true">EM</div>
+              <div class="teacher-copy">
+                <p class="section-kicker">Private Lesson</p>
+                <h2 id="teacherName">Emma</h2>
+                <p class="teacher-role">Private English Tutor</p>
+                <p class="teacher-intro">
+                  We will practice your spoken English naturally and review only
+                  the corrections that matter most.
+                </p>
+              </div>
+              <div class="teacher-availability">
+                <span class="teacher-availability-dot" aria-hidden="true"></span>
+                <span>Available now</span>
+              </div>
+            </section>
+
+            <section class="conversation-panel" aria-labelledby="conversationTitle">
+              <div class="conversation-heading">
+                <div>
+                  <p class="section-kicker">Conversation</p>
+                  <h2 id="conversationTitle">Your private speaking practice</h2>
+                </div>
+                <div class="lesson-context" aria-label="Lesson context">
+                  <span>Conversation Practice</span>
+                  <span>English</span>
+                  <span>General Conversation</span>
+                </div>
+              </div>
+
+              <section id="emptyState" class="empty-state" aria-label="Lesson welcome">
+                <p class="empty-eyebrow">Private English Lesson</p>
+                <h3>Hi, I'm Emma.</h3>
+                <p>
+                  Let's practice your English naturally. Tell me about your day,
+                  work, travel, or anything you would like to talk about.
+                </p>
+
+                <div class="empty-prompts" aria-hidden="true">
+                  <span>Talk about your day</span>
+                  <span>Practice work English</span>
+                  <span>Describe your weekend</span>
+                </div>
+              </section>
+
+              <ol id="conversationList" class="conversation-list" aria-live="polite"></ol>
+            </section>
+          </div>
+
+          <section class="speaking-dock" aria-labelledby="speakingTitle">
+            <div class="speaking-copy">
+              <p class="section-kicker">Speaking Area</p>
+              <h2 id="speakingTitle">Use your voice</h2>
+              <p id="statusMessage" class="status-message">Tap the microphone to begin speaking.</p>
+            </div>
+
+            <div class="speaking-control">
+              <button
+                id="recordButton"
+                class="mic-button"
+                type="button"
+                aria-label="Start recording"
+                aria-pressed="false"
+              >
+                <span class="mic-halo" aria-hidden="true"></span>
+                <span id="recordIcon" class="mic-icon" aria-hidden="true"></span>
+              </button>
+
+              <div class="speaking-meta">
+                <p id="recordLabel" class="record-label">Tap to speak</p>
+                <p id="recordingTime" class="recording-time" aria-live="polite">00:00</p>
+              </div>
+            </div>
+
+            <div id="recordingWave" class="recording-wave" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+
+            <p id="errorMessage" class="error-message" hidden></p>
+          </section>
+        </section>
+
+        <aside class="lesson-sidebar" aria-labelledby="notesTitle">
+          <div class="sidebar-card lesson-notes">
+            <p class="section-kicker">Lesson Notes</p>
+            <h2 id="notesTitle">Feedback from your tutor</h2>
+            <p class="sidebar-intro">
+              Review corrections, smoother phrasing, and vocabulary from the latest response.
+            </p>
+          </div>
+
+          <section id="feedbackSection" class="feedback-stack" hidden aria-label="Learning feedback">
+            <article class="sidebar-card correction-card">
+              <p class="sidebar-label">Correction</p>
+              <div id="corrections" class="sidebar-content"></div>
+            </article>
+
+            <article class="sidebar-card">
+              <p class="sidebar-label">More Natural</p>
+              <div id="naturalVersion" class="sidebar-content"></div>
+            </article>
+
+            <article class="sidebar-card">
+              <p class="sidebar-label">New Expression</p>
+              <div id="vocabulary" class="sidebar-content"></div>
+            </article>
+          </section>
+
+          <div class="sidebar-card session-card">
+            <p class="sidebar-label">Session Info</p>
+            <ul class="session-list">
+              <li>Focus: speaking naturally</li>
+              <li>Format: one response at a time</li>
+              <li>Feedback: concise and useful</li>
+            </ul>
+          </div>
+
+          <details id="technicalDetails" class="sidebar-card technical-details" hidden>
+            <summary>
+              <span>Technical details</span>
+              <span id="timingSummary">Total response: -</span>
+            </summary>
+
+            <dl class="timing-list">
+              <div>
+                <dt>Speech recognition</dt>
+                <dd id="timingWhisper">-</dd>
+              </div>
+              <div>
+                <dt>AI response</dt>
+                <dd id="timingOllama">-</dd>
+              </div>
+              <div>
+                <dt>Voice generation</dt>
+                <dd id="timingTts">-</dd>
+              </div>
+              <div>
+                <dt>Total response</dt>
+                <dd id="timingTotal">-</dd>
+              </div>
+            </dl>
+          </details>
+        </aside>
+      </section>
+    </main>
+
+    <audio id="responseAudio" preload="auto"></audio>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
