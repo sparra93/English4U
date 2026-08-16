@@ -4,7 +4,7 @@ import unittest
 
 from pydantic import ValidationError
 
-from app.schemas.teaching_config import (
+from backend.schemas.teaching_config import (
     DEFAULT_TEACHING_CONFIG,
     TeachingConfig,
     TeachingConfigOverride,

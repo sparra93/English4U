@@ -6,7 +6,7 @@ from pathlib import Path
 
 from faster_whisper import WhisperModel
 
-from app.config import settings
+from backend.config import settings
 
 
 class WhisperServiceError(RuntimeError):

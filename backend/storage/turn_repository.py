@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from app.schemas.teacher_output import TeacherReply
-from app.storage.db import session_scope
+from backend.schemas.teacher_output import TeacherReply
+from backend.storage.db import session_scope
 
 
 @dataclass

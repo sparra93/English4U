@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from app.schemas.teaching_config import TeachingConfig
-from app.storage.db import session_scope
+from backend.schemas.teaching_config import TeachingConfig
+from backend.storage.db import session_scope
 
 
 @dataclass
@@ -46,7 +46,7 @@ def get_or_create_session(
 ) -> SessionRecord:
     """Idempotent: returns the existing session, or opens a new one.
 
-    A "session" spans one browser tab's lifetime (see `app/static/app.js`),
+    A "session" spans one browser tab's lifetime (see `backend/static/app.js`),
     so this is also the window future recent-turn memory reads from.
     """
 

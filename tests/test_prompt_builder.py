@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import unittest
 
-from app.config import PROMPTS_DIR
-from app.schemas.teacher_output import TeacherReply
-from app.schemas.teaching_config import DEFAULT_TEACHING_CONFIG, TeachingConfig
-from app.services.prompt_builder import ROLE_PROMPT_PATH, TEACHING_POLICY_PATH, build_messages
-from app.storage.learner_repository import LearnerRecord
-from app.storage.turn_repository import TurnRecord
+from backend.config import PROMPTS_DIR
+from backend.schemas.teacher_output import TeacherReply
+from backend.schemas.teaching_config import DEFAULT_TEACHING_CONFIG, TeachingConfig
+from backend.services.prompt_builder import ROLE_PROMPT_PATH, TEACHING_POLICY_PATH, build_messages
+from backend.storage.learner_repository import LearnerRecord
+from backend.storage.turn_repository import TurnRecord
 
 
 def _make_learner(**overrides: object) -> LearnerRecord:

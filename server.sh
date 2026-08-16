@@ -4,7 +4,7 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_BIN="$PROJECT_DIR/venv/bin/python"
-APP_MODULE="app.main:app"
+APP_MODULE="backend.main:app"
 ENV_FILE="$PROJECT_DIR/.env"
 
 if [[ -f "$ENV_FILE" ]]; then

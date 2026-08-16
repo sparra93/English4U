@@ -6,15 +6,15 @@ from unittest.mock import Mock, patch
 
 import requests
 
-from app.schemas.teaching_config import DEFAULT_TEACHING_CONFIG
-from app.services.tutor_service import (
+from backend.schemas.teaching_config import DEFAULT_TEACHING_CONFIG
+from backend.services.tutor_service import (
     TutorService,
     TutorServiceError,
     TutorValidationError,
     format_corrections_for_display,
     format_vocabulary_for_display,
 )
-from app.storage.learner_repository import LearnerRecord
+from backend.storage.learner_repository import LearnerRecord
 
 VALID_PAYLOAD = {
     "response": "That sounds like a productive day.",
@@ -71,7 +71,7 @@ class TutorServiceAskTests(unittest.TestCase):
         self.learner = _make_learner()
 
     def test_empty_transcription_raises_without_calling_ollama(self) -> None:
-        with patch("app.services.tutor_service.requests.post") as mock_post:
+        with patch("backend.services.tutor_service.requests.post") as mock_post:
             with self.assertRaises(TutorServiceError):
                 self.service.ask("   ", DEFAULT_TEACHING_CONFIG, self.learner, [])
             mock_post.assert_not_called()
@@ -79,7 +79,7 @@ class TutorServiceAskTests(unittest.TestCase):
     def test_valid_json_on_first_attempt_succeeds(self) -> None:
         mock_response = _ollama_response(json.dumps(VALID_PAYLOAD))
 
-        with patch("app.services.tutor_service.requests.post", return_value=mock_response) as mock_post:
+        with patch("backend.services.tutor_service.requests.post", return_value=mock_response) as mock_post:
             result = self.service.ask("I go to the store yesterday.", DEFAULT_TEACHING_CONFIG, self.learner, [])
 
         self.assertEqual(mock_post.call_count, 1)
@@ -94,7 +94,7 @@ class TutorServiceAskTests(unittest.TestCase):
         valid_response = _ollama_response(json.dumps(VALID_PAYLOAD))
 
         with patch(
-            "app.services.tutor_service.requests.post",
+            "backend.services.tutor_service.requests.post",
             side_effect=[invalid_response, valid_response],
         ) as mock_post:
             result = self.service.ask("I go to the store yesterday.", DEFAULT_TEACHING_CONFIG, self.learner, [])
@@ -112,7 +112,7 @@ class TutorServiceAskTests(unittest.TestCase):
         invalid_response = _ollama_response("still not json")
 
         with patch(
-            "app.services.tutor_service.requests.post",
+            "backend.services.tutor_service.requests.post",
             side_effect=[invalid_response, invalid_response],
         ) as mock_post:
             with self.assertRaises(TutorValidationError):
@@ -127,7 +127,7 @@ class TutorServiceAskTests(unittest.TestCase):
         valid_response = _ollama_response(json.dumps(VALID_PAYLOAD))
 
         with patch(
-            "app.services.tutor_service.requests.post",
+            "backend.services.tutor_service.requests.post",
             side_effect=[invalid_response, valid_response],
         ) as mock_post:
             result = self.service.ask("hi", DEFAULT_TEACHING_CONFIG, self.learner, [])
@@ -136,14 +136,14 @@ class TutorServiceAskTests(unittest.TestCase):
         self.assertEqual(result.natural_version, VALID_PAYLOAD["natural_version"])
 
     def test_http_timeout_raises_tutor_service_error(self) -> None:
-        with patch("app.services.tutor_service.requests.post", side_effect=requests.Timeout):
+        with patch("backend.services.tutor_service.requests.post", side_effect=requests.Timeout):
             with self.assertRaises(TutorServiceError):
                 self.service.ask("hi", DEFAULT_TEACHING_CONFIG, self.learner, [])
 
     def test_format_sent_to_ollama_has_no_refs(self) -> None:
         mock_response = _ollama_response(json.dumps(VALID_PAYLOAD))
 
-        with patch("app.services.tutor_service.requests.post", return_value=mock_response) as mock_post:
+        with patch("backend.services.tutor_service.requests.post", return_value=mock_response) as mock_post:
             self.service.ask("hi", DEFAULT_TEACHING_CONFIG, self.learner, [])
 
         sent_format = mock_post.call_args.kwargs["json"]["format"]

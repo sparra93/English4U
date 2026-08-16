@@ -8,12 +8,12 @@ from dataclasses import dataclass
 import requests
 from pydantic import ValidationError
 
-from app.config import settings
-from app.schemas.teacher_output import CorrectionItem, TeacherReply, VocabularySuggestion, inline_refs
-from app.schemas.teaching_config import TeachingConfig
-from app.services.prompt_builder import build_messages
-from app.storage.learner_repository import LearnerRecord
-from app.storage.turn_repository import TurnRecord
+from backend.config import settings
+from backend.schemas.teacher_output import CorrectionItem, TeacherReply, VocabularySuggestion, inline_refs
+from backend.schemas.teaching_config import TeachingConfig
+from backend.services.prompt_builder import build_messages
+from backend.storage.learner_repository import LearnerRecord
+from backend.storage.turn_repository import TurnRecord
 
 logger = logging.getLogger(__name__)
 

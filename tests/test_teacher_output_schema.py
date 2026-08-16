@@ -4,7 +4,7 @@ import unittest
 
 from pydantic import ValidationError
 
-from app.schemas.teacher_output import CorrectionItem, TeacherReply, VocabularySuggestion, inline_refs
+from backend.schemas.teacher_output import CorrectionItem, TeacherReply, VocabularySuggestion, inline_refs
 
 
 class TeacherReplyTests(unittest.TestCase):

@@ -16,10 +16,10 @@ Regla principal:
 
 ## Archivos importantes
 
-- `app/main.py`: app FastAPI principal
-- `app/config.py`: carga `.env` automaticamente
-- `app/schemas/`: esquemas Pydantic (salida estructurada del tutor, configuracion de ensenanza)
-- `app/storage/`: acceso a la base de datos SQLite (alumno, sesiones, turnos)
+- `backend/main.py`: app FastAPI principal
+- `backend/config.py`: carga `.env` automaticamente
+- `backend/schemas/`: esquemas Pydantic (salida estructurada del tutor, configuracion de ensenanza)
+- `backend/storage/`: acceso a la base de datos SQLite (alumno, sesiones, turnos)
 - `.env.example`: plantilla de configuracion
 - `requirements.server.txt`: dependencias completas del servidor central
 - `requirements.proxy.txt`: dependencias minimas para cliente proxy
@@ -29,7 +29,7 @@ Regla principal:
 
 Nota importante: la persistencia (SQLite) y la resolucion de configuracion de
 ensenanza (Pydantic) solo se cargan en modo `server`. El modo `proxy` nunca
-importa `app/schemas/` ni `app/storage/` — sigue siendo un reenviador HTTP
+importa `backend/schemas/` ni `backend/storage/` — sigue siendo un reenviador HTTP
 delgado, igual que hoy con Whisper, Ollama y Kokoro.
 
 ## Modo 1: servidor central
@@ -68,7 +68,7 @@ WHISPER_FALLBACK_COMPUTE_TYPE=int8
 TTS_VOICE=af_heart
 TTS_REPO_ID=hexgrad/Kokoro-82M
 GENERATED_RETENTION_SECONDS=3600
-DB_PATH=app/data/english46.db
+DB_PATH=backend/data/english46.db
 RECENT_TURNS_LIMIT=6
 ```
 
@@ -77,7 +77,7 @@ RECENT_TURNS_LIMIT=6
 Produccion simple:
 
 ```bash
-venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090
+venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8090
 ```
 
 Script recomendado para servidor central:
@@ -151,7 +151,7 @@ No instalar Ollama. No descargar modelos. No instalar `faster-whisper`. No insta
 Produccion simple:
 
 ```bash
-venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090
+venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8090
 ```
 
 Desarrollo con HTTPS:
@@ -202,18 +202,25 @@ Cliente proxy en otra maquina:
 REMOTE_BACKEND_BASE_URL=https://tu-servidor.tu-tailnet.ts.net
 ```
 
-## Frontend en React (en desarrollo, no reemplaza `app/static/` todavia)
+## Frontend en React (en desarrollo, no reemplaza `backend/static/` todavia)
 
 Existe una migracion en progreso a React + TypeScript + Vite + Mantine en
-`frontend/`. `app/static/` (vanilla HTML/CSS/JS) sigue siendo el frontend de
+`frontend/`. `backend/static/` (vanilla HTML/CSS/JS) sigue siendo el frontend de
 produccion y no se toca hasta que el de React quede validado. El backend no
 cambio: ambos frontends hablan con la misma API (`/api/*`, `/generated/*`).
 
-Para levantar el frontend de React en desarrollo, en dos terminales:
+Forma recomendada, un solo comando (levanta el backend en HTTP plano, espera
+a que responda, y recien ahi arranca Vite; Ctrl+C baja los dos):
+
+```bash
+./dev-react.sh
+```
+
+O a mano, en dos terminales:
 
 ```bash
 # Terminal 1: backend en HTTP plano (sin el certificado autofirmado de dev.sh)
-venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090 --reload
+venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8090 --reload
 
 # Terminal 2: Vite, con proxy de /api y /generated hacia :8090
 cd frontend

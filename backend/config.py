@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-APP_DIR = PROJECT_DIR / "app"
-GENERATED_DIR = APP_DIR / "generated"
-PROMPTS_DIR = APP_DIR / "prompts"
-DATA_DIR = APP_DIR / "data"
+BACKEND_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = BACKEND_DIR.parent
+GENERATED_DIR = BACKEND_DIR / "generated"
+PROMPTS_DIR = BACKEND_DIR / "prompts"
+DATA_DIR = BACKEND_DIR / "data"
 ENV_FILE = PROJECT_DIR / ".env"
 
 

@@ -13,11 +13,11 @@ venv/
 
 # Generated audio and temporary media
 *.wav
-app/generated/
+backend/generated/
 
 # Local learner/session database
-app/data/*.db
-app/data/*.db-*
+backend/data/*.db
+backend/data/*.db-*
 
 # Local backups and editor swap files
 *-backup.py

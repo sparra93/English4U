@@ -83,12 +83,12 @@ Variables mas utiles:
 
 El prompt del tutor se ensambla en capas (rol, politica pedagogica
 compartida, configuracion de ensenanza en runtime, contexto del alumno,
-historial reciente y tarea actual) en `app/services/prompt_builder.py`. El
+historial reciente y tarea actual) en `backend/services/prompt_builder.py`. El
 texto estatico de las dos primeras capas se puede editar sin tocar logica
 Python en:
 
-- `app/prompts/role.txt`
-- `app/prompts/teaching_policy.txt`
+- `backend/prompts/role.txt`
+- `backend/prompts/teaching_policy.txt`
 
 ## Instalacion
 
@@ -139,7 +139,7 @@ Con eso no hace falta instalar Ollama, descargar modelos ni levantar Whisper/Kok
 ## Ejecutar la app web
 
 ```bash
-venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090
+venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8090
 ```
 
 Si esta maquina sera el servidor central para otros clientes, usa preferentemente:
@@ -207,7 +207,7 @@ URLs en desarrollo:
 Comportamiento de recarga:
 
 - el backend arranca con auto reload habilitado
-- la vigilancia de cambios se limita a `app/`
+- la vigilancia de cambios se limita a `backend/`
 - los cambios en archivos Python del backend provocan recarga
 - los archivos `.wav` generados no deberian provocar recargas innecesarias
 
@@ -260,7 +260,7 @@ Luego arranca normalmente:
 o:
 
 ```bash
-venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090
+venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8090
 ```
 
 En este modo:
@@ -344,7 +344,7 @@ Respuesta JSON:
 ## Estructura del proyecto
 
 ```text
-app/
+backend/
   config.py                Configuracion por entorno
   main.py                  FastAPI app y endpoints
   schemas/
@@ -353,7 +353,7 @@ app/
   storage/
     db.py                  Conexion SQLite y esquema (DDL)
     learner_repository.py  Alumno por defecto y sus preferencias
-    session_repository.py  Sesiones de navegador
+    session_repository.py  Sesiones de navegador (incluye soft-delete)
     turn_repository.py     Turnos (transcripcion + salida estructurada)
   prompts/
     role.txt               Rol inmutable del tutor
@@ -363,16 +363,26 @@ app/
     tutor_service.py       Llamada a Ollama con salida estructurada y reintento
     prompt_builder.py      Ensamblado del prompt en capas
     tts_service.py         Sintesis de voz
-  static/
-    index.html             Interfaz web
-    styles.css             Estilos
-    app.js                 Grabacion, session_id y consumo del backend
+  static/                  Frontend de produccion (vanilla HTML/CSS/JS)
+    index.html             Conversacion (sidebar de sesiones + chat)
+    progress.html           Dashboard "My Progress"
+    styles.css              Estilos compartidos
+    app.js                  Grabacion, sesiones, conversacion
+    progress.js              Estadisticas, graficos, historial
+    sidebar.js                Colapsar/expandir el sidebar
   generated/               Audios temporales y respuestas generadas
   data/                    Base de datos SQLite (ignorada por git)
 
-tutor.py                   Script local de prueba end-to-end (legado, rutas fijas)
-test_whisper.py            Prueba aislada de Whisper (legado, rutas fijas)
-test_tts.py                Prueba aislada de Kokoro (legado, rutas fijas)
+frontend/                  Frontend en React + TypeScript + Vite + Mantine
+  src/                     (en desarrollo — ver AGENT_RUNBOOK.md; no reemplaza
+                             backend/static/ todavia)
+
+scripts/
+  legacy/                  Scripts de prueba manual, rutas fijas, no mantenidos
+    tutor.py                Flujo completo sin navegador
+    test_whisper.py          Prueba aislada de Whisper
+    test_tts.py               Prueba aislada de Kokoro
+
 tests/
   test_tutor_service.py         Tests del servicio del tutor (mock de Ollama)
   test_teacher_output_schema.py Tests del esquema de salida estructurada
@@ -380,6 +390,10 @@ tests/
   test_prompt_builder.py        Tests del ensamblado de prompt
   test_storage.py               Tests de los repositorios SQLite
   test_api_tutor_endpoint.py    Test end-to-end del endpoint (servicios mockeados)
+
+dev.sh                      Backend local con HTTPS (vanilla frontend)
+dev-react.sh                 Backend + Vite juntos (frontend React)
+server.sh                     Servidor central con Tailscale Serve opcional
 requirements.txt           Dependencias Python (servidor)
 requirements.server.txt    Alias de requirements.txt
 requirements.proxy.txt     Dependencias minimas del cliente proxy
@@ -388,10 +402,15 @@ requirements-dev.txt       Dependencias adicionales solo para tests
 
 ## Scripts utiles
 
+Los scripts en `scripts/legacy/` son pruebas manuales de un solo archivo,
+anteriores a la app FastAPI actual — tienen rutas fijas y no reflejan
+necesariamente el contrato actual de `TutorService`. Se conservan solo como
+referencia rapida para probar Whisper o Kokoro de forma aislada.
+
 ### Probar el flujo completo sin navegador
 
 ```bash
-/home/soulblue/english-tutor/venv/bin/python tutor.py
+venv/bin/python scripts/legacy/tutor.py
 ```
 
 Usa `test.wav` como entrada y escribe `tutor_response.wav`.
@@ -399,13 +418,13 @@ Usa `test.wav` como entrada y escribe `tutor_response.wav`.
 ### Probar solo Whisper
 
 ```bash
-/home/soulblue/english-tutor/venv/bin/python test_whisper.py
+venv/bin/python scripts/legacy/test_whisper.py
 ```
 
 ### Probar solo TTS
 
 ```bash
-/home/soulblue/english-tutor/venv/bin/python test_tts.py
+venv/bin/python scripts/legacy/test_tts.py
 ```
 
 ### Ejecutar tests unitarios
@@ -435,20 +454,20 @@ venv/bin/python -m pip install -r requirements-dev.txt
 - Los agentes Planner, Evaluator, Grammar, Vocabulary y Pronunciation
   descritos en `agents/` todavia no existen como logica separada; el turno
   sigue siendo una unica llamada al modelo.
-- Los archivos de audio generados se sirven desde `app/generated/` y se limpian por antiguedad, no por cuota de espacio.
+- Los archivos de audio generados se sirven desde `backend/generated/` y se limpian por antiguedad, no por cuota de espacio.
 - El modo proxy asume que el servidor central expone esta misma API en `/api/*` y los audios en `/generated/*`.
 
 ## Archivos clave
 
-- Entrada web: `app/main.py`
-- Configuracion: `app/config.py`
-- Logica del tutor (salida estructurada, reintento): `app/services/tutor_service.py`
-- Ensamblado del prompt en capas: `app/services/prompt_builder.py`
-- Esquemas Pydantic: `app/schemas/teacher_output.py`, `app/schemas/teaching_config.py`
-- Persistencia SQLite: `app/storage/db.py` y los repositorios en `app/storage/`
-- Transcripcion: `app/services/whisper_service.py`
-- Sintesis de voz: `app/services/tts_service.py`
-- Prompts estaticos: `app/prompts/role.txt`, `app/prompts/teaching_policy.txt`
+- Entrada web: `backend/main.py`
+- Configuracion: `backend/config.py`
+- Logica del tutor (salida estructurada, reintento): `backend/services/tutor_service.py`
+- Ensamblado del prompt en capas: `backend/services/prompt_builder.py`
+- Esquemas Pydantic: `backend/schemas/teacher_output.py`, `backend/schemas/teaching_config.py`
+- Persistencia SQLite: `backend/storage/db.py` y los repositorios en `backend/storage/`
+- Transcripcion: `backend/services/whisper_service.py`
+- Sintesis de voz: `backend/services/tts_service.py`
+- Prompts estaticos: `backend/prompts/role.txt`, `backend/prompts/teaching_policy.txt`
 - Script standalone (legado, rutas fijas): `tutor.py`
 
 ## Siguiente mejora razonable

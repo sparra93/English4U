@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app.schemas.teacher_output import TeacherReply
-from app.services.tutor_service import TutorResult, TutorServiceError, TutorValidationError
+from backend.schemas.teacher_output import TeacherReply
+from backend.services.tutor_service import TutorResult, TutorServiceError, TutorValidationError
 
 AUDIO_BYTES = b"fake-audio-bytes-not-really-a-wav-file"
 
@@ -100,7 +100,7 @@ def _broken_tts_service_classes() -> dict[str, object]:
 
 class ApiTutorEndpointTests(unittest.TestCase):
     def setUp(self) -> None:
-        import app.main as main_module
+        import backend.main as main_module
 
         self.main_module = main_module
 
@@ -145,7 +145,7 @@ class ApiTutorEndpointTests(unittest.TestCase):
         self.assertTrue(body["session_id"])
         self.assertEqual(body["response"], "Great, tell me more!")
 
-        from app.storage.turn_repository import get_recent_turns
+        from backend.storage.turn_repository import get_recent_turns
 
         turns = get_recent_turns(self.main_module.settings.db_path, body["session_id"], limit=10)
         self.assertEqual(len(turns), 1)
@@ -193,7 +193,7 @@ class ApiTutorEndpointTests(unittest.TestCase):
  
 class ApiTutorEndpointStartupFailureTests(unittest.TestCase):
     def setUp(self) -> None:
-        import app.main as main_module
+        import backend.main as main_module
 
         self.main_module = main_module
 

@@ -3,12 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from app.config import PROMPTS_DIR
-from app.schemas.teaching_config import TeachingConfig
+from backend.config import PROMPTS_DIR
+from backend.schemas.teaching_config import TeachingConfig
 
 if TYPE_CHECKING:
-    from app.storage.learner_repository import LearnerRecord
-    from app.storage.turn_repository import TurnRecord
+    from backend.storage.learner_repository import LearnerRecord
+    from backend.storage.turn_repository import TurnRecord
 
 ROLE_PROMPT_PATH = PROMPTS_DIR / "role.txt"
 TEACHING_POLICY_PATH = PROMPTS_DIR / "teaching_policy.txt"

@@ -15,7 +15,7 @@ from fastapi.responses import Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.config import GENERATED_DIR, settings
+from backend.config import GENERATED_DIR, settings
 
 MAX_SESSION_ID_LENGTH = 128
 MAX_HISTORY_LIMIT = 500
@@ -63,9 +63,9 @@ def _remote_url(path: str) -> str:
 
 
 def _load_local_service_classes() -> dict[str, type]:
-    from app.services.tts_service import TTSService, TTSServiceError
-    from app.services.tutor_service import TutorService, TutorServiceError
-    from app.services.whisper_service import WhisperService, WhisperServiceError
+    from backend.services.tts_service import TTSService, TTSServiceError
+    from backend.services.tutor_service import TutorService, TutorServiceError
+    from backend.services.whisper_service import WhisperService, WhisperServiceError
 
     return {
         "tts_service": TTSService,
@@ -86,20 +86,20 @@ def _load_local_data_layer() -> dict[str, object]:
 
     from pydantic import ValidationError
 
-    from app.schemas.teaching_config import TeachingConfigOverride, resolve_teaching_config
-    from app.services.tutor_service import (
+    from backend.schemas.teaching_config import TeachingConfigOverride, resolve_teaching_config
+    from backend.services.tutor_service import (
         format_corrections_for_display,
         format_vocabulary_for_display,
     )
-    from app.storage.db import init_db, session_scope
-    from app.storage.learner_repository import get_or_create_default_learner
-    from app.storage.session_repository import (
+    from backend.storage.db import init_db, session_scope
+    from backend.storage.learner_repository import get_or_create_default_learner
+    from backend.storage.session_repository import (
         get_or_create_session,
         list_sessions_for_learner,
         soft_delete_session,
         touch_session,
     )
-    from app.storage.turn_repository import (
+    from backend.storage.turn_repository import (
         get_recent_turns,
         get_turns_for_learner,
         get_turns_for_session,

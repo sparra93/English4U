@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.services.tts_service import TTSService
-from app.services.tutor_service import TutorService
-from app.services.whisper_service import WhisperService
+from backend.services.tts_service import TTSService
+from backend.services.tutor_service import TutorService
+from backend.services.whisper_service import WhisperService
 
 
 INPUT_AUDIO = Path("/home/soulblue/english-tutor/test.wav")

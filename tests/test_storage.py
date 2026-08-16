@@ -5,12 +5,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from app.schemas.teacher_output import TeacherReply
-from app.schemas.teaching_config import TeachingConfigOverride, resolve_teaching_config
-from app.storage.db import init_db
-from app.storage.learner_repository import DEFAULT_LEARNER_ID, get_or_create_default_learner, update_learner_preferences
-from app.storage.session_repository import get_or_create_session, touch_session
-from app.storage.turn_repository import get_recent_turns, insert_turn
+from backend.schemas.teacher_output import TeacherReply
+from backend.schemas.teaching_config import TeachingConfigOverride, resolve_teaching_config
+from backend.storage.db import init_db
+from backend.storage.learner_repository import DEFAULT_LEARNER_ID, get_or_create_default_learner, update_learner_preferences
+from backend.storage.session_repository import get_or_create_session, touch_session
+from backend.storage.turn_repository import get_recent_turns, insert_turn
 
 
 class StorageTestCase(unittest.TestCase):

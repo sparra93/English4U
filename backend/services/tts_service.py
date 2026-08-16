@@ -8,7 +8,7 @@ import numpy as np
 import soundfile as sf
 from kokoro import KPipeline
 
-from app.config import settings
+from backend.config import settings
 
 SAMPLE_RATE = 24000
 
