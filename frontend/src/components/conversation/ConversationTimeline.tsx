@@ -3,6 +3,7 @@ import { Box, Stack, Text, Title } from "@mantine/core";
 import { StudentTurn } from "./StudentTurn";
 import { TeacherTurn } from "./TeacherTurn";
 import { TypingIndicator } from "./TypingIndicator";
+import { useTutorContext } from "../../context/TutorContext";
 import type { ConversationTurn } from "../../types/tutor";
 
 interface ConversationTimelineProps {
@@ -17,6 +18,8 @@ export function ConversationTimeline({
   onReplay,
 }: ConversationTimelineProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const { profile } = useTutorContext();
+  const teacherName = profile.activeTutor.name;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -42,10 +45,16 @@ export function ConversationTimeline({
         turn.role === "student" ? (
           <StudentTurn key={turn.id} text={turn.text} />
         ) : (
-          <TeacherTurn key={turn.id} text={turn.text} audioUrl={turn.audioUrl} onReplay={onReplay} />
+          <TeacherTurn
+            key={turn.id}
+            text={turn.text}
+            audioUrl={turn.audioUrl}
+            teacherName={teacherName}
+            onReplay={onReplay}
+          />
         ),
       )}
-      {isProcessing ? <TypingIndicator /> : null}
+      {isProcessing ? <TypingIndicator teacherName={teacherName} /> : null}
       <Box ref={bottomRef} />
     </Stack>
   );

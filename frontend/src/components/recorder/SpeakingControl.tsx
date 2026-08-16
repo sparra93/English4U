@@ -3,6 +3,7 @@ import { Loader2, Mic, Volume2 } from "lucide-react";
 import type { TutorPhase } from "../../types/tutor";
 import { RecordingTimer } from "./RecordingTimer";
 import { RecordingVisualizer } from "./RecordingVisualizer";
+import { useTutorContext } from "../../context/TutorContext";
 
 interface SpeakingControlProps {
   phase: TutorPhase;
@@ -11,13 +12,20 @@ interface SpeakingControlProps {
   onToggle: () => void;
 }
 
-const PHASE_COPY: Record<TutorPhase, string> = {
-  idle: "Tap to speak",
-  recording: "Listening…",
-  processing: "Emma is thinking…",
-  playing: "Emma is speaking…",
-  error: "Tap to try again",
-};
+function phaseCopyFor(phase: TutorPhase, teacherName: string): string {
+  switch (phase) {
+    case "idle":
+      return "Tap to speak";
+    case "recording":
+      return "Listening…";
+    case "processing":
+      return `${teacherName} is thinking…`;
+    case "playing":
+      return `${teacherName} is speaking…`;
+    case "error":
+      return "Tap to try again";
+  }
+}
 
 const PHASE_COLOR: Record<TutorPhase, string> = {
   idle: "teal",
@@ -28,6 +36,7 @@ const PHASE_COLOR: Record<TutorPhase, string> = {
 };
 
 export function SpeakingControl({ phase, elapsedSeconds, level, onToggle }: SpeakingControlProps) {
+  const { profile } = useTutorContext();
   const isBusy = phase === "processing" || phase === "playing";
   const isRecording = phase === "recording";
 
@@ -73,7 +82,7 @@ export function SpeakingControl({ phase, elapsedSeconds, level, onToggle }: Spea
       </Box>
 
       <Text fw={600} size="sm">
-        {PHASE_COPY[phase]}
+        {phaseCopyFor(phase, profile.activeTutor.name)}
       </Text>
 
       {isRecording ? (

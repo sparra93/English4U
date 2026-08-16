@@ -1,12 +1,15 @@
 import { Paper, Stack, Text } from "@mantine/core";
 import type { HistoryTurn } from "../../types/history";
 import { formatDateTime } from "../../utils/format";
+import { useTutorContext } from "../../context/TutorContext";
 
 interface PracticeLogListProps {
   turns: HistoryTurn[];
 }
 
 export function PracticeLogList({ turns }: PracticeLogListProps) {
+  const { profile } = useTutorContext();
+
   if (turns.length === 0) {
     return (
       <Text size="sm" c="dimmed">
@@ -30,7 +33,7 @@ export function PracticeLogList({ turns }: PracticeLogListProps) {
           </Text>
           <Text component="div" size="sm">
             <Text component="span" fw={700}>
-              Emma:{" "}
+              {profile.activeTutor.name}:{" "}
             </Text>
             {turn.response}
           </Text>

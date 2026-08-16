@@ -1,21 +1,23 @@
 import { Avatar, Box, Group, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { Volume2 } from "lucide-react";
+import { initialsFor } from "../../utils/format";
 
 interface TeacherTurnProps {
   text: string;
   audioUrl?: string;
+  teacherName: string;
   onReplay: (audioUrl: string) => void;
 }
 
-export function TeacherTurn({ text, audioUrl, onReplay }: TeacherTurnProps) {
+export function TeacherTurn({ text, audioUrl, teacherName, onReplay }: TeacherTurnProps) {
   return (
     <Group align="flex-start" wrap="nowrap" gap="xs">
       <Avatar radius="xl" size={32} color="navy" variant="filled" mt={2}>
-        EM
+        {initialsFor(teacherName)}
       </Avatar>
       <Box maw="72%">
         <Text size="xs" fw={600} c="dimmed" mb={4}>
-          Emma
+          {teacherName}
         </Text>
         <Box
           px="md"

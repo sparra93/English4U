@@ -1,4 +1,5 @@
 import { Avatar, Box, Group } from "@mantine/core";
+import { initialsFor } from "../../utils/format";
 
 const DOT_STYLE = (delay: string): React.CSSProperties => ({
   width: 6,
@@ -9,11 +10,15 @@ const DOT_STYLE = (delay: string): React.CSSProperties => ({
   animation: `typing-bounce 1.1s ${delay} infinite ease-in-out`,
 });
 
-export function TypingIndicator() {
+interface TypingIndicatorProps {
+  teacherName: string;
+}
+
+export function TypingIndicator({ teacherName }: TypingIndicatorProps) {
   return (
     <Group align="flex-start" wrap="nowrap" gap="xs">
       <Avatar radius="xl" size={32} color="navy" variant="filled" mt={2}>
-        EM
+        {initialsFor(teacherName)}
       </Avatar>
       <Box
         px="md"

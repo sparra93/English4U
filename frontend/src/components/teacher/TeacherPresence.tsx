@@ -2,14 +2,11 @@ import { Avatar, Group, Popover, Stack, Text, UnstyledButton } from "@mantine/co
 import { useDisclosure } from "@mantine/hooks";
 import { TeacherStatus } from "./TeacherStatus";
 import { useTutorContext } from "../../context/TutorContext";
+import { initialsFor } from "../../utils/format";
 import type { TutorPhase } from "../../types/tutor";
 
 interface TeacherPresenceProps {
   phase: TutorPhase;
-}
-
-function initialsFor(name: string): string {
-  return name.slice(0, 2).toUpperCase();
 }
 
 export function TeacherPresence({ phase }: TeacherPresenceProps) {

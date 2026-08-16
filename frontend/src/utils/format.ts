@@ -28,3 +28,7 @@ export function formatTiming(value: number | undefined): string {
   }
   return `${value.toFixed(2)}s`;
 }
+
+export function initialsFor(name: string): string {
+  return name.slice(0, 2).toUpperCase();
+}
