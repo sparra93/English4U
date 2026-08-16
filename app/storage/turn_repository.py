@@ -101,6 +101,22 @@ def get_recent_turns(
     return [_row_to_record(row) for row in reversed(rows)]
 
 
+def get_turns_for_session(db_path: str | Path, session_id: str) -> list[TurnRecord]:
+    """Return every turn in one session, oldest first, for re-displaying it in full."""
+
+    with session_scope(db_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT * FROM turns
+            WHERE session_id = ?
+            ORDER BY turn_index ASC
+            """,
+            (session_id,),
+        ).fetchall()
+
+    return [_row_to_record(row) for row in rows]
+
+
 def get_turns_for_learner(
     db_path: str | Path, learner_id: str, limit: int
 ) -> list[TurnRecord]:

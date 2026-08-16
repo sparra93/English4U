@@ -19,6 +19,14 @@ class SessionRecord:
     session_override_json: str | None
 
 
+@dataclass
+class SessionSummary:
+    session_id: str
+    started_at: str
+    last_active_at: str
+    turn_count: int
+
+
 def _row_to_record(row: object) -> SessionRecord:
     return SessionRecord(
         session_id=row["session_id"],
@@ -60,6 +68,44 @@ def get_or_create_session(
             "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
         ).fetchone()
         return _row_to_record(row)
+
+
+def list_sessions_for_learner(
+    db_path: str | Path, learner_id: str, limit: int = 100
+) -> list[SessionSummary]:
+    """Most recently active sessions first, each with its turn count.
+
+    Sessions with zero turns (created but never completed a full round trip)
+    are excluded — nothing to show or resume for those yet.
+    """
+
+    with session_scope(db_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                sessions.session_id AS session_id,
+                sessions.started_at AS started_at,
+                sessions.last_active_at AS last_active_at,
+                COUNT(turns.turn_id) AS turn_count
+            FROM sessions
+            JOIN turns ON turns.session_id = sessions.session_id
+            WHERE sessions.learner_id = ?
+            GROUP BY sessions.session_id
+            ORDER BY sessions.last_active_at DESC
+            LIMIT ?
+            """,
+            (learner_id, limit),
+        ).fetchall()
+
+    return [
+        SessionSummary(
+            session_id=row["session_id"],
+            started_at=row["started_at"],
+            last_active_at=row["last_active_at"],
+            turn_count=row["turn_count"],
+        )
+        for row in rows
+    ]
 
 
 def touch_session(

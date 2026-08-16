@@ -93,8 +93,17 @@ def _load_local_data_layer() -> dict[str, object]:
     )
     from app.storage.db import init_db, session_scope
     from app.storage.learner_repository import get_or_create_default_learner
-    from app.storage.session_repository import get_or_create_session, touch_session
-    from app.storage.turn_repository import get_recent_turns, get_turns_for_learner, insert_turn
+    from app.storage.session_repository import (
+        get_or_create_session,
+        list_sessions_for_learner,
+        touch_session,
+    )
+    from app.storage.turn_repository import (
+        get_recent_turns,
+        get_turns_for_learner,
+        get_turns_for_session,
+        insert_turn,
+    )
 
     return {
         "validation_error": ValidationError,
@@ -104,9 +113,11 @@ def _load_local_data_layer() -> dict[str, object]:
         "session_scope": session_scope,
         "get_or_create_default_learner": get_or_create_default_learner,
         "get_or_create_session": get_or_create_session,
+        "list_sessions_for_learner": list_sessions_for_learner,
         "touch_session": touch_session,
         "get_recent_turns": get_recent_turns,
         "get_turns_for_learner": get_turns_for_learner,
+        "get_turns_for_session": get_turns_for_session,
         "insert_turn": insert_turn,
         "format_corrections_for_display": format_corrections_for_display,
         "format_vocabulary_for_display": format_vocabulary_for_display,
@@ -271,6 +282,64 @@ async def history(limit: int = DEFAULT_HISTORY_LIMIT) -> JSONResponse:
                 {
                     "turn_id": turn.turn_id,
                     "session_id": turn.session_id,
+                    "created_at": turn.created_at,
+                    "transcription": turn.transcription,
+                    "response": turn.teacher_output.response,
+                    "corrections": data_layer["format_corrections_for_display"](
+                        turn.teacher_output.corrections
+                    ),
+                    "natural_version": turn.teacher_output.natural_version,
+                    "vocabulary": data_layer["format_vocabulary_for_display"](
+                        turn.teacher_output.vocabulary
+                    ),
+                }
+                for turn in turns
+            ],
+        }
+    )
+
+
+@app.get("/api/sessions")
+async def sessions_list() -> JSONResponse:
+    if _is_proxy_mode():
+        return _proxy_json("GET", "/api/sessions")
+
+    data_layer = app.state.data_layer
+    learner = data_layer["get_or_create_default_learner"](settings.db_path)
+    summaries = data_layer["list_sessions_for_learner"](settings.db_path, learner.learner_id)
+
+    return JSONResponse(
+        {
+            "sessions": [
+                {
+                    "session_id": summary.session_id,
+                    "started_at": summary.started_at,
+                    "last_active_at": summary.last_active_at,
+                    "turn_count": summary.turn_count,
+                }
+                for summary in summaries
+            ],
+        }
+    )
+
+
+@app.get("/api/sessions/{session_id}/turns")
+async def session_turns(session_id: str) -> JSONResponse:
+    if len(session_id) > MAX_SESSION_ID_LENGTH:
+        raise HTTPException(status_code=400, detail="session_id is too long.")
+
+    if _is_proxy_mode():
+        return _proxy_json("GET", f"/api/sessions/{session_id}/turns")
+
+    data_layer = app.state.data_layer
+    turns = data_layer["get_turns_for_session"](settings.db_path, session_id)
+
+    return JSONResponse(
+        {
+            "session_id": session_id,
+            "turns": [
+                {
+                    "turn_id": turn.turn_id,
                     "created_at": turn.created_at,
                     "transcription": turn.transcription,
                     "response": turn.teacher_output.response,

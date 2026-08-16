@@ -16,6 +16,10 @@ const feedbackSection = document.getElementById("feedbackSection");
 const correctionsEl = document.getElementById("corrections");
 const naturalVersionEl = document.getElementById("naturalVersion");
 
+const newSessionButton = document.getElementById("newSessionButton");
+const sessionsListEl = document.getElementById("sessionsList");
+const sessionsEmptyEl = document.getElementById("sessionsEmpty");
+
 const SESSION_STORAGE_KEY = "english-ai-tutor-session";
 
 const UI_STATE = {
@@ -245,6 +249,43 @@ function createMessage(role, text, audioUrl = "") {
   };
 }
 
+let typingIndicatorEl = null;
+
+function showTypingIndicator() {
+  hideTypingIndicator();
+  emptyState.hidden = true;
+
+  const item = document.createElement("li");
+  item.className = "message teacher typing-indicator";
+
+  const avatar = document.createElement("div");
+  avatar.className = "message-avatar";
+  avatar.textContent = "EM";
+
+  const body = document.createElement("div");
+  body.className = "message-body";
+
+  const bubble = document.createElement("div");
+  bubble.className = "message-copy typing-bubble";
+  bubble.innerHTML = "<span></span><span></span><span></span>";
+
+  body.appendChild(bubble);
+  item.append(avatar, body);
+  conversationList.appendChild(item);
+  typingIndicatorEl = item;
+
+  window.requestAnimationFrame(() => {
+    item.scrollIntoView({ block: "end", behavior: "smooth" });
+  });
+}
+
+function hideTypingIndicator() {
+  if (typingIndicatorEl) {
+    typingIndicatorEl.remove();
+    typingIndicatorEl = null;
+  }
+}
+
 function renderConversation() {
   conversationList.innerHTML = "";
   emptyState.hidden = state.messages.length > 0;
@@ -385,6 +426,135 @@ function renderFeedback(data) {
   renderNaturalVersion(data.natural_version || "");
 }
 
+let sessionsCache = [];
+
+function formatSessionDate(isoString) {
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return "Session";
+  }
+
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function renderSessionsList() {
+  sessionsListEl.innerHTML = "";
+  sessionsEmptyEl.hidden = sessionsCache.length > 0;
+
+  sessionsCache.forEach((session) => {
+    const item = document.createElement("li");
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "session-item";
+    button.dataset.sessionId = session.session_id;
+
+    if (session.session_id === state.sessionId) {
+      button.classList.add("is-active");
+      button.setAttribute("aria-current", "true");
+    }
+
+    const dateEl = document.createElement("span");
+    dateEl.className = "session-item-date";
+    dateEl.textContent = formatSessionDate(session.last_active_at);
+
+    const countEl = document.createElement("span");
+    countEl.className = "session-item-count";
+    countEl.textContent = session.turn_count === 1 ? "1 turn" : `${session.turn_count} turns`;
+
+    button.append(dateEl, countEl);
+    item.appendChild(button);
+    sessionsListEl.appendChild(item);
+  });
+}
+
+async function loadSessionsList() {
+  try {
+    const response = await fetch("/api/sessions");
+    const data = await response.json();
+
+    if (!response.ok) {
+      return;
+    }
+
+    sessionsCache = Array.isArray(data.sessions) ? data.sessions : [];
+    renderSessionsList();
+  } catch {
+    // Non-critical: the sidebar just keeps whatever it last showed.
+  }
+}
+
+function turnsToMessages(turns) {
+  const messages = [];
+
+  turns.forEach((turn) => {
+    messages.push(createMessage("student", turn.transcription || ""));
+    messages.push(createMessage("teacher", turn.response || ""));
+  });
+
+  return messages;
+}
+
+async function switchToSession(sessionId) {
+  if (!sessionId || sessionId === state.sessionId) {
+    return;
+  }
+
+  hideError();
+
+  try {
+    const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/turns`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || "Could not load that session.");
+    }
+
+    const turns = Array.isArray(data.turns) ? data.turns : [];
+    const lastTurn = turns[turns.length - 1];
+
+    state.sessionId = sessionId;
+    state.messages = turnsToMessages(turns);
+    state.latestFeedback = lastTurn
+      ? {
+          corrections: lastTurn.corrections || "",
+          natural_version: lastTurn.natural_version || "",
+        }
+      : null;
+
+    saveSessionState();
+    renderConversation();
+
+    if (state.latestFeedback) {
+      renderFeedback(state.latestFeedback);
+    } else {
+      feedbackSection.hidden = true;
+    }
+
+    renderSessionsList();
+  } catch (error) {
+    showError(error.message || "Could not load that session.");
+  }
+}
+
+function startNewSession() {
+  hideError();
+
+  state.sessionId = window.crypto.randomUUID();
+  state.messages = [];
+  state.latestFeedback = null;
+  feedbackSection.hidden = true;
+
+  saveSessionState();
+  renderConversation();
+  renderSessionsList();
+}
+
 async function playTutorAudio(audioUrl, replay = false) {
   if (!audioUrl) {
     return;
@@ -484,6 +654,8 @@ async function handleRecordingStop() {
     formData.append("session_id", state.sessionId);
   }
 
+  showTypingIndicator();
+
   try {
     const response = await fetch("/api/tutor", {
       method: "POST",
@@ -508,6 +680,7 @@ async function handleRecordingStop() {
       state.sessionId = data.session_id;
     }
     saveSessionState();
+    loadSessionsList();
 
     renderConversation();
     renderFeedback(data);
@@ -518,8 +691,11 @@ async function handleRecordingStop() {
 
     await playTutorAudio(data.audio_url);
   } catch (error) {
+    hideTypingIndicator();
+    renderConversation();
     showError(error.message || "The tutor request failed.");
   } finally {
+    hideTypingIndicator();
     state.mediaRecorder = null;
     state.recordedChunks = [];
     stopRecordingTimer();
@@ -581,6 +757,17 @@ responseAudio.addEventListener("error", () => {
   showError("The browser could not play the tutor response audio.");
 });
 
+newSessionButton.addEventListener("click", startNewSession);
+
+sessionsListEl.addEventListener("click", (event) => {
+  const button = event.target.closest(".session-item");
+  if (!button) {
+    return;
+  }
+
+  switchToSession(button.dataset.sessionId);
+});
+
 recordingWave.dataset.active = "false";
 loadSessionState();
 ensureSessionId();
@@ -590,3 +777,4 @@ if (state.latestFeedback) {
 }
 updateRecordButton();
 setStatus("Tap the microphone to begin speaking.", UI_STATE.READY);
+loadSessionsList();

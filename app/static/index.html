@@ -7,119 +7,166 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <main class="lesson-shell">
-      <header class="topbar">
-        <div class="brand">
-          <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false">
-              <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H10l-4.5 4v-4H6.5A2.5 2.5 0 0 1 4 13.5v-8Z" fill="currentColor"/>
-            </svg>
-          </span>
-          <div class="brand-copy">
-            <p class="brand-label">English AI Tutor</p>
-            <h1>Speaking Practice</h1>
+    <div class="app-shell">
+      <aside class="app-sidebar" id="appSidebar" aria-label="Primary">
+        <div class="sidebar-header">
+          <div class="brand">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H10l-4.5 4v-4H6.5A2.5 2.5 0 0 1 4 13.5v-8Z" fill="currentColor"/>
+              </svg>
+            </span>
+            <div class="brand-copy">
+              <p class="brand-label">English AI Tutor</p>
+              <h1>Speaking Practice</h1>
+            </div>
           </div>
+
+          <button
+            id="sidebarToggle"
+            class="sidebar-toggle"
+            type="button"
+            aria-label="Collapse sidebar"
+            aria-expanded="true"
+          >
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
         </div>
 
-        <nav class="app-nav" aria-label="Main">
-          <a class="nav-link is-active" href="/">Conversation</a>
-          <a class="nav-link" href="/progress">My Progress</a>
+        <nav class="sidebar-nav" aria-label="Main">
+          <a class="nav-link is-active" href="/">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H10l-4.5 4v-4H6.5A2.5 2.5 0 0 1 4 13.5v-8Z" fill="currentColor"/>
+              </svg>
+            </span>
+            <span class="nav-text">Conversation</span>
+          </a>
+          <a class="nav-link" href="/progress">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M5 19V10M12 19V5M19 19v-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="nav-text">My Progress</span>
+          </a>
         </nav>
 
-        <div id="appStatus" class="status-pill" data-state="ready" aria-live="polite">
-          <span class="status-dot" aria-hidden="true"></span>
-          <span id="appStatusLabel">Session Ready</span>
-        </div>
-      </header>
+        <div class="sidebar-sessions">
+          <button id="newSessionButton" class="new-session-btn" type="button" title="New conversation">
+            <span aria-hidden="true">+</span>
+            <span class="nav-text">New conversation</span>
+          </button>
 
-      <section class="hero-card">
-        <div class="hero-avatar" aria-hidden="true">
-          <span>EM</span>
-        </div>
-        <h2>Hi, I'm Emma <span aria-hidden="true">👋</span></h2>
-        <div class="hero-available">
-          <span class="teacher-availability-dot" aria-hidden="true"></span>
-          <span>Available now</span>
-        </div>
-      </section>
+          <p class="section-kicker sessions-kicker">Past sessions</p>
 
-      <section class="speaking-dock" aria-labelledby="speakingTitle">
-        <button
-          id="recordButton"
-          class="record-cta"
-          type="button"
-          aria-label="Start recording"
-          aria-pressed="false"
-        >
-          <span class="mic-halo" aria-hidden="true"></span>
-          <span id="recordIcon" class="mic-icon" aria-hidden="true"></span>
-        </button>
+          <ol id="sessionsList" class="sessions-list" aria-live="polite"></ol>
 
-        <div class="speaking-meta">
-          <p id="recordLabel" class="record-label">Tap to speak</p>
-          <p id="statusMessage" class="status-message">Tap the microphone to begin speaking.</p>
+          <p id="sessionsEmpty" class="empty-hint" hidden>
+            No past sessions yet. Start talking to create your first one.
+          </p>
         </div>
+      </aside>
 
-        <div class="speaking-side">
-          <p id="recordingTime" class="recording-time" aria-live="polite">00:00</p>
-          <div id="recordingWave" class="recording-wave" aria-hidden="true">
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
+      <div class="app-main">
+        <header class="topbar">
+          <div id="appStatus" class="status-pill" data-state="ready" aria-live="polite">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="appStatusLabel">Session Ready</span>
           </div>
-        </div>
+        </header>
+
+        <section class="hero-card">
+          <div class="hero-avatar" aria-hidden="true">
+            <span>EM</span>
+          </div>
+          <h2>Hi, I'm Emma</h2>
+          <div class="hero-available">
+            <span class="teacher-availability-dot" aria-hidden="true"></span>
+            <span>Available now</span>
+          </div>
+        </section>
+
+        <section id="feedbackSection" class="quick-feedback" hidden aria-label="Feedback on your last turn">
+          <article class="feedback-chip correction-card">
+            <p class="sidebar-label">Correction</p>
+            <div id="corrections" class="sidebar-content"></div>
+          </article>
+
+          <article class="feedback-chip natural-card">
+            <p class="sidebar-label">More natural</p>
+            <div id="naturalVersion" class="sidebar-content"></div>
+          </article>
+        </section>
 
         <p id="errorMessage" class="error-message" hidden></p>
-      </section>
 
-      <section id="feedbackSection" class="quick-feedback" hidden aria-label="Feedback on your last turn">
-        <article class="feedback-chip correction-card">
-          <p class="sidebar-label"><span aria-hidden="true">✏️</span> Correction</p>
-          <div id="corrections" class="sidebar-content"></div>
-        </article>
+        <section class="conversation-panel" aria-labelledby="conversationTitle">
+          <div class="conversation-heading">
+            <p class="section-kicker">Conversation</p>
+            <h2 id="conversationTitle">Your speaking practice</h2>
+          </div>
 
-        <article class="feedback-chip natural-card">
-          <p class="sidebar-label"><span aria-hidden="true">💬</span> More Natural</p>
-          <div id="naturalVersion" class="sidebar-content"></div>
-        </article>
-      </section>
+          <div class="conversation-scroll">
+            <section id="emptyState" class="empty-state" aria-label="Lesson welcome">
+              <h3>Ready when you are</h3>
+              <p>
+                Tap the microphone and start talking. Your conversation will
+                show up right here.
+              </p>
 
-      <section class="conversation-panel" aria-labelledby="conversationTitle">
-        <div class="conversation-heading">
-          <p class="section-kicker">Conversation</p>
-          <h2 id="conversationTitle">Your speaking practice</h2>
-        </div>
+              <div class="empty-prompts" aria-hidden="true">
+                <span>Talk about your day</span>
+                <span>Practice work English</span>
+                <span>Describe your weekend</span>
+              </div>
+            </section>
 
-        <div class="conversation-scroll">
-          <section id="emptyState" class="empty-state" aria-label="Lesson welcome">
-            <div class="empty-illustration" aria-hidden="true">🎙️</div>
-            <h3>Ready when you are</h3>
-            <p>
-              Press the microphone above and start talking. Your conversation
-              will show up right here.
-            </p>
+            <ol id="conversationList" class="conversation-list" aria-live="polite"></ol>
+          </div>
 
-            <div class="empty-prompts" aria-hidden="true">
-              <span>Talk about your day</span>
-              <span>Practice work English</span>
-              <span>Describe your weekend</span>
+          <div class="composer-bar" aria-label="Talk to Emma">
+            <div class="composer-text">
+              <p id="recordLabel" class="record-label">Tap to speak</p>
+              <p id="statusMessage" class="status-message">Tap the microphone to begin speaking.</p>
             </div>
-          </section>
 
-          <ol id="conversationList" class="conversation-list" aria-live="polite"></ol>
-        </div>
-      </section>
-    </main>
+            <div class="speaking-side">
+              <p id="recordingTime" class="recording-time" aria-live="polite">00:00</p>
+              <div id="recordingWave" class="recording-wave" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+
+            <button
+              id="recordButton"
+              class="record-cta"
+              type="button"
+              aria-label="Start recording"
+              aria-pressed="false"
+            >
+              <span class="mic-halo" aria-hidden="true"></span>
+              <span id="recordIcon" class="mic-icon" aria-hidden="true"></span>
+            </button>
+          </div>
+        </section>
+      </div>
+    </div>
 
     <audio id="responseAudio" preload="auto"></audio>
+    <script src="/static/sidebar.js"></script>
     <script src="/static/app.js"></script>
   </body>
 </html>
