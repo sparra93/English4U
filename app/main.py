@@ -18,6 +18,8 @@ from fastapi.staticfiles import StaticFiles
 from app.config import GENERATED_DIR, settings
 
 MAX_SESSION_ID_LENGTH = 128
+MAX_HISTORY_LIMIT = 500
+DEFAULT_HISTORY_LIMIT = 200
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -85,10 +87,14 @@ def _load_local_data_layer() -> dict[str, object]:
     from pydantic import ValidationError
 
     from app.schemas.teaching_config import TeachingConfigOverride, resolve_teaching_config
+    from app.services.tutor_service import (
+        format_corrections_for_display,
+        format_vocabulary_for_display,
+    )
     from app.storage.db import init_db, session_scope
     from app.storage.learner_repository import get_or_create_default_learner
     from app.storage.session_repository import get_or_create_session, touch_session
-    from app.storage.turn_repository import get_recent_turns, insert_turn
+    from app.storage.turn_repository import get_recent_turns, get_turns_for_learner, insert_turn
 
     return {
         "validation_error": ValidationError,
@@ -100,7 +106,10 @@ def _load_local_data_layer() -> dict[str, object]:
         "get_or_create_session": get_or_create_session,
         "touch_session": touch_session,
         "get_recent_turns": get_recent_turns,
+        "get_turns_for_learner": get_turns_for_learner,
         "insert_turn": insert_turn,
+        "format_corrections_for_display": format_corrections_for_display,
+        "format_vocabulary_for_display": format_vocabulary_for_display,
     }
 
 
@@ -235,6 +244,46 @@ async def health() -> JSONResponse:
                 "tutor": getattr(app.state, "tutor_startup_error", None),
                 "tts": getattr(app.state, "tts_startup_error", None),
             },
+        }
+    )
+
+
+@app.get("/progress")
+async def progress_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "progress.html")
+
+
+@app.get("/api/history")
+async def history(limit: int = DEFAULT_HISTORY_LIMIT) -> JSONResponse:
+    limit = max(1, min(limit, MAX_HISTORY_LIMIT))
+
+    if _is_proxy_mode():
+        return _proxy_json("GET", "/api/history", params={"limit": limit})
+
+    data_layer = app.state.data_layer
+    learner = data_layer["get_or_create_default_learner"](settings.db_path)
+    turns = data_layer["get_turns_for_learner"](settings.db_path, learner.learner_id, limit)
+
+    return JSONResponse(
+        {
+            "learner_id": learner.learner_id,
+            "turns": [
+                {
+                    "turn_id": turn.turn_id,
+                    "session_id": turn.session_id,
+                    "created_at": turn.created_at,
+                    "transcription": turn.transcription,
+                    "response": turn.teacher_output.response,
+                    "corrections": data_layer["format_corrections_for_display"](
+                        turn.teacher_output.corrections
+                    ),
+                    "natural_version": turn.teacher_output.natural_version,
+                    "vocabulary": data_layer["format_vocabulary_for_display"](
+                        turn.teacher_output.vocabulary
+                    ),
+                }
+                for turn in turns
+            ],
         }
     )
 

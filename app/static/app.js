@@ -15,14 +15,6 @@ const feedbackSection = document.getElementById("feedbackSection");
 
 const correctionsEl = document.getElementById("corrections");
 const naturalVersionEl = document.getElementById("naturalVersion");
-const vocabularyEl = document.getElementById("vocabulary");
-
-const technicalDetails = document.getElementById("technicalDetails");
-const timingSummaryEl = document.getElementById("timingSummary");
-const timingWhisperEl = document.getElementById("timingWhisper");
-const timingOllamaEl = document.getElementById("timingOllama");
-const timingTtsEl = document.getElementById("timingTts");
-const timingTotalEl = document.getElementById("timingTotal");
 
 const SESSION_STORAGE_KEY = "english-ai-tutor-session";
 
@@ -73,7 +65,6 @@ const state = {
   messages: [],
   currentAudioUrl: "",
   latestFeedback: null,
-  latestTimings: null,
   sessionId: "",
 };
 
@@ -106,10 +97,6 @@ function loadSessionState() {
       state.latestFeedback = parsed.latestFeedback;
     }
 
-    if (parsed.latestTimings && typeof parsed.latestTimings === "object") {
-      state.latestTimings = parsed.latestTimings;
-    }
-
     if (typeof parsed.sessionId === "string" && parsed.sessionId) {
       state.sessionId = parsed.sessionId;
     }
@@ -122,7 +109,6 @@ function saveSessionState() {
   const snapshot = {
     messages: state.messages,
     latestFeedback: state.latestFeedback,
-    latestTimings: state.latestTimings,
     sessionId: state.sessionId,
   };
 
@@ -164,26 +150,10 @@ function hideError() {
   errorMessage.textContent = "";
 }
 
-function formatTiming(value) {
-  if (typeof value !== "number") {
-    return "-";
-  }
-
-  return `${value.toFixed(2)}s`;
-}
-
 function formatDuration(totalSeconds) {
   const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
   const seconds = String(totalSeconds % 60).padStart(2, "0");
   return `${minutes}:${seconds}`;
-}
-
-function resetTimings() {
-  timingWhisperEl.textContent = "-";
-  timingOllamaEl.textContent = "-";
-  timingTtsEl.textContent = "-";
-  timingTotalEl.textContent = "-";
-  timingSummaryEl.textContent = "Total response: -";
 }
 
 function startRecordingTimer() {
@@ -409,46 +379,10 @@ function renderNaturalVersion(text) {
   naturalVersionEl.appendChild(wrapper);
 }
 
-function renderVocabulary(text) {
-  vocabularyEl.innerHTML = "";
-
-  const normalized = (text || "").trim();
-  const lines = normalized.split(/\n+/).map((line) => line.trim()).filter(Boolean);
-  const wrapper = document.createElement("div");
-  wrapper.className = "feedback-vocab-body";
-
-  if (lines.length > 1) {
-    const term = document.createElement("span");
-    term.className = "feedback-vocab-term";
-    term.textContent = lines[0];
-
-    const description = document.createElement("p");
-    description.textContent = lines.slice(1).join(" ");
-
-    wrapper.append(term, description);
-  } else {
-    const paragraph = document.createElement("p");
-    paragraph.textContent = normalized || "No vocabulary suggestion provided.";
-    wrapper.appendChild(paragraph);
-  }
-
-  vocabularyEl.appendChild(wrapper);
-}
-
 function renderFeedback(data) {
   feedbackSection.hidden = false;
   renderCorrections(data.corrections || "");
   renderNaturalVersion(data.natural_version || "");
-  renderVocabulary(data.vocabulary || "");
-}
-
-function renderTimings(timings = {}) {
-  timingWhisperEl.textContent = formatTiming(timings.whisper);
-  timingOllamaEl.textContent = formatTiming(timings.ollama);
-  timingTtsEl.textContent = formatTiming(timings.tts);
-  timingTotalEl.textContent = formatTiming(timings.total);
-  timingSummaryEl.textContent = `Total response: ${formatTiming(timings.total)}`;
-  technicalDetails.hidden = false;
 }
 
 async function playTutorAudio(audioUrl, replay = false) {
@@ -569,9 +503,7 @@ async function handleRecordingStop() {
     state.latestFeedback = {
       corrections: data.corrections || "",
       natural_version: data.natural_version || "",
-      vocabulary: data.vocabulary || "",
     };
-    state.latestTimings = data.timings || {};
     if (data.session_id) {
       state.sessionId = data.session_id;
     }
@@ -579,7 +511,6 @@ async function handleRecordingStop() {
 
     renderConversation();
     renderFeedback(data);
-    renderTimings(data.timings || {});
 
     if (!data.audio_url) {
       throw new Error("The tutor response did not include audio.");
@@ -653,13 +584,9 @@ responseAudio.addEventListener("error", () => {
 recordingWave.dataset.active = "false";
 loadSessionState();
 ensureSessionId();
-resetTimings();
 renderConversation();
 if (state.latestFeedback) {
   renderFeedback(state.latestFeedback);
-}
-if (state.latestTimings) {
-  renderTimings(state.latestTimings);
 }
 updateRecordButton();
 setStatus("Tap the microphone to begin speaking.", UI_STATE.READY);

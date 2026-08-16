@@ -99,3 +99,28 @@ def get_recent_turns(
         ).fetchall()
 
     return [_row_to_record(row) for row in reversed(rows)]
+
+
+def get_turns_for_learner(
+    db_path: str | Path, learner_id: str, limit: int
+) -> list[TurnRecord]:
+    """Return up to `limit` most recent turns across all of a learner's sessions.
+
+    Most recent first, for the learning-history page — unlike
+    `get_recent_turns`, this crosses session boundaries via a join since
+    turns are only linked to a session, not directly to a learner.
+    """
+
+    with session_scope(db_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT turns.* FROM turns
+            JOIN sessions ON sessions.session_id = turns.session_id
+            WHERE sessions.learner_id = ?
+            ORDER BY turns.created_at DESC
+            LIMIT ?
+            """,
+            (learner_id, limit),
+        ).fetchall()
+
+    return [_row_to_record(row) for row in rows]

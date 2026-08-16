@@ -27,6 +27,11 @@
           </div>
         </div>
 
+        <nav class="app-nav" aria-label="Main">
+          <a class="nav-link is-active" href="/">Conversation</a>
+          <a class="nav-link" href="/progress">My Progress</a>
+        </nav>
+
         <div id="appStatus" class="status-pill" data-state="ready" aria-live="polite">
           <span class="status-dot" aria-hidden="true"></span>
           <span id="appStatusLabel">Session Ready</span>
@@ -37,19 +42,7 @@
         <div class="hero-avatar" aria-hidden="true">
           <span>EM</span>
         </div>
-        <div class="hero-copy">
-          <p class="hero-eyebrow">Your tutor today</p>
-          <h2>Hi, I'm Emma! <span aria-hidden="true">👋</span></h2>
-          <p class="hero-bubble">
-            Let's practice your English naturally. Tell me about your day,
-            work, travel, or anything you'd like to talk about.
-          </p>
-          <div class="hero-tags" aria-label="Lesson context">
-            <span>💬 Conversation Practice</span>
-            <span>🇬🇧 English</span>
-            <span>🌤️ General Chat</span>
-          </div>
-        </div>
+        <h2>Hi, I'm Emma <span aria-hidden="true">👋</span></h2>
         <div class="hero-available">
           <span class="teacher-availability-dot" aria-hidden="true"></span>
           <span>Available now</span>
@@ -57,8 +50,6 @@
       </section>
 
       <section class="speaking-dock" aria-labelledby="speakingTitle">
-        <p class="section-kicker" id="speakingTitle">Tap to talk with Emma</p>
-
         <button
           id="recordButton"
           class="record-cta"
@@ -73,27 +64,41 @@
         <div class="speaking-meta">
           <p id="recordLabel" class="record-label">Tap to speak</p>
           <p id="statusMessage" class="status-message">Tap the microphone to begin speaking.</p>
-          <p id="recordingTime" class="recording-time" aria-live="polite">00:00</p>
         </div>
 
-        <div id="recordingWave" class="recording-wave" aria-hidden="true">
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
+        <div class="speaking-side">
+          <p id="recordingTime" class="recording-time" aria-live="polite">00:00</p>
+          <div id="recordingWave" class="recording-wave" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
         </div>
 
         <p id="errorMessage" class="error-message" hidden></p>
       </section>
 
-      <section class="lesson-layout" aria-label="Private English lesson">
-        <section class="conversation-panel" aria-labelledby="conversationTitle">
-          <div class="conversation-heading">
-            <p class="section-kicker">Conversation</p>
-            <h2 id="conversationTitle">Your speaking practice</h2>
-          </div>
+      <section id="feedbackSection" class="quick-feedback" hidden aria-label="Feedback on your last turn">
+        <article class="feedback-chip correction-card">
+          <p class="sidebar-label"><span aria-hidden="true">✏️</span> Correction</p>
+          <div id="corrections" class="sidebar-content"></div>
+        </article>
 
+        <article class="feedback-chip natural-card">
+          <p class="sidebar-label"><span aria-hidden="true">💬</span> More Natural</p>
+          <div id="naturalVersion" class="sidebar-content"></div>
+        </article>
+      </section>
+
+      <section class="conversation-panel" aria-labelledby="conversationTitle">
+        <div class="conversation-heading">
+          <p class="section-kicker">Conversation</p>
+          <h2 id="conversationTitle">Your speaking practice</h2>
+        </div>
+
+        <div class="conversation-scroll">
           <section id="emptyState" class="empty-state" aria-label="Lesson welcome">
             <div class="empty-illustration" aria-hidden="true">🎙️</div>
             <h3>Ready when you are</h3>
@@ -110,69 +115,7 @@
           </section>
 
           <ol id="conversationList" class="conversation-list" aria-live="polite"></ol>
-        </section>
-
-        <aside class="lesson-sidebar" aria-labelledby="notesTitle">
-          <div class="sidebar-card lesson-notes">
-            <p class="section-kicker">Lesson Notes</p>
-            <h2 id="notesTitle">Feedback from your tutor</h2>
-            <p class="sidebar-intro">
-              Corrections, smoother phrasing, and new vocabulary from your latest turn.
-            </p>
-          </div>
-
-          <section id="feedbackSection" class="feedback-stack" hidden aria-label="Learning feedback">
-            <article class="sidebar-card correction-card">
-              <p class="sidebar-label"><span aria-hidden="true">✏️</span> Correction</p>
-              <div id="corrections" class="sidebar-content"></div>
-            </article>
-
-            <article class="sidebar-card natural-card">
-              <p class="sidebar-label"><span aria-hidden="true">💬</span> More Natural</p>
-              <div id="naturalVersion" class="sidebar-content"></div>
-            </article>
-
-            <article class="sidebar-card vocab-card">
-              <p class="sidebar-label"><span aria-hidden="true">⭐</span> New Expression</p>
-              <div id="vocabulary" class="sidebar-content"></div>
-            </article>
-          </section>
-
-          <div class="sidebar-card session-card">
-            <p class="sidebar-label"><span aria-hidden="true">🎯</span> Session Info</p>
-            <ul class="session-list">
-              <li>Focus: speaking naturally</li>
-              <li>Format: one response at a time</li>
-              <li>Feedback: concise and useful</li>
-            </ul>
-          </div>
-
-          <details id="technicalDetails" class="sidebar-card technical-details" hidden>
-            <summary>
-              <span>Technical details</span>
-              <span id="timingSummary">Total response: -</span>
-            </summary>
-
-            <dl class="timing-list">
-              <div>
-                <dt>Speech recognition</dt>
-                <dd id="timingWhisper">-</dd>
-              </div>
-              <div>
-                <dt>AI response</dt>
-                <dd id="timingOllama">-</dd>
-              </div>
-              <div>
-                <dt>Voice generation</dt>
-                <dd id="timingTts">-</dd>
-              </div>
-              <div>
-                <dt>Total response</dt>
-                <dd id="timingTotal">-</dd>
-              </div>
-            </dl>
-          </details>
-        </aside>
+        </div>
       </section>
     </main>
 

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Progress - English AI Tutor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="page-scroll">
+    <main class="lesson-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H10l-4.5 4v-4H6.5A2.5 2.5 0 0 1 4 13.5v-8Z" fill="currentColor"/>
+            </svg>
+          </span>
+          <div class="brand-copy">
+            <p class="brand-label">English AI Tutor</p>
+            <h1>My Progress</h1>
+          </div>
+        </div>
+
+        <nav class="app-nav" aria-label="Main">
+          <a class="nav-link" href="/">Conversation</a>
+          <a class="nav-link is-active" href="/progress">My Progress</a>
+        </nav>
+      </header>
+
+      <section class="stats-row" aria-label="Progress summary">
+        <div class="stat-chip">
+          <span class="stat-value" id="statTurns">-</span>
+          <span class="stat-label">Turns practiced</span>
+        </div>
+        <div class="stat-chip">
+          <span class="stat-value" id="statVocab">-</span>
+          <span class="stat-label">Words learned</span>
+        </div>
+        <div class="stat-chip">
+          <span class="stat-value" id="statSessions">-</span>
+          <span class="stat-label">Sessions</span>
+        </div>
+      </section>
+
+      <p id="progressError" class="error-message" hidden></p>
+      <p id="progressLoading" class="status-message">Loading your learning history...</p>
+
+      <section class="conversation-panel" aria-labelledby="vocabTitle">
+        <div class="conversation-heading">
+          <p class="section-kicker">Vocabulary</p>
+          <h2 id="vocabTitle">Words and expressions you've learned</h2>
+        </div>
+
+        <p id="vocabEmpty" class="empty-hint" hidden>
+          No new vocabulary yet — it will show up here after your tutor suggests one.
+        </p>
+
+        <div id="vocabGrid" class="vocab-grid"></div>
+      </section>
+
+      <section class="conversation-panel" aria-labelledby="correctionsTitle">
+        <div class="conversation-heading">
+          <p class="section-kicker">Corrections</p>
+          <h2 id="correctionsTitle">Your correction history</h2>
+        </div>
+
+        <p id="correctionsEmpty" class="empty-hint" hidden>
+          No corrections yet — great sentences so far!
+        </p>
+
+        <ol id="correctionsHistory" class="corrections-history"></ol>
+      </section>
+
+      <section class="conversation-panel" aria-labelledby="logTitle">
+        <div class="conversation-heading">
+          <p class="section-kicker">Practice Log</p>
+          <h2 id="logTitle">Everything you've said</h2>
+        </div>
+
+        <p id="practiceLogEmpty" class="empty-hint" hidden>
+          Nothing recorded yet. Start a conversation to build your history.
+        </p>
+
+        <ol id="practiceLog" class="practice-log"></ol>
+      </section>
+    </main>
+
+    <script src="/static/progress.js"></script>
+  </body>
+</html>
