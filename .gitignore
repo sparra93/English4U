@@ -13,7 +13,8 @@ venv/
 
 # Generated audio and temporary media
 *.wav
-backend/generated/
+backend/generated/*
+!backend/generated/.gitkeep
 
 # Local learner/session database
 backend/data/*.db

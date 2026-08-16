@@ -164,7 +164,6 @@ def _proxy_json(method: str, path: str, **kwargs: object) -> JSONResponse:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    GENERATED_DIR.mkdir(parents=True, exist_ok=True)
     if _is_proxy_mode():
         app.state.remote_backend_base_url = settings.remote_backend_base_url.rstrip("/")
     else:
@@ -200,6 +199,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="English AI Tutor", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 if not _is_proxy_mode():
+    # Created here, not in lifespan: StaticFiles checks the directory at
+    # mount time (import time), before the lifespan startup event ever runs.
+    GENERATED_DIR.mkdir(parents=True, exist_ok=True)
     app.mount("/generated", StaticFiles(directory=GENERATED_DIR), name="generated")
 
 
