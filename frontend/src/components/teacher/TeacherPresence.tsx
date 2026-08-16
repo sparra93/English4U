@@ -15,7 +15,7 @@ export function TeacherPresence({ phase }: TeacherPresenceProps) {
 
   return (
     <Group justify="space-between" align="center" wrap="wrap" gap="md">
-      <Popover width={240} position="bottom-start" shadow="md" opened={opened} onClose={close}>
+      <Popover width={280} position="bottom-start" shadow="md" opened={opened} onClose={close}>
         <Popover.Target>
           <UnstyledButton
             onClick={toggle}
@@ -29,7 +29,7 @@ export function TeacherPresence({ phase }: TeacherPresenceProps) {
                 {profile.activeTutor.name}
               </Text>
               <Text size="xs" c="dimmed">
-                Private English Tutor · {profile.activeTutor.accent}
+                {profile.activeTutor.specialty} · {profile.activeTutor.accent}
               </Text>
             </Stack>
           </UnstyledButton>
@@ -61,9 +61,12 @@ export function TeacherPresence({ phase }: TeacherPresenceProps) {
                     {tutor.name}
                   </Text>
                   <Text size="xs" c="dimmed">
-                    {tutor.accent}
+                    {tutor.specialty}
                   </Text>
                 </Group>
+                <Text size="xs" c="dimmed" mt={2}>
+                  {tutor.tagline}
+                </Text>
               </UnstyledButton>
             ))}
           </Stack>

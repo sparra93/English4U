@@ -399,7 +399,13 @@ async def tutors() -> JSONResponse:
     return JSONResponse(
         {
             "tutors": [
-                {"id": tutor.id, "name": tutor.name, "accent": tutor.accent}
+                {
+                    "id": tutor.id,
+                    "name": tutor.name,
+                    "accent": tutor.accent,
+                    "specialty": tutor.specialty,
+                    "tagline": tutor.tagline,
+                }
                 for tutor in list_tutors()
             ]
         }
@@ -566,6 +572,7 @@ async def tutor(
             learner,
             recent_turns,
             tutor_name=tutor.name,
+            tutor_behavior_prompt=tutor.behavior_prompt,
         )
 
         output_name = f"{uuid.uuid4().hex}.wav"

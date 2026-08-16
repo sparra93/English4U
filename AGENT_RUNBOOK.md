@@ -69,7 +69,7 @@ TTS_VOICE=af_heart
 TTS_REPO_ID=hexgrad/Kokoro-82M
 GENERATED_RETENTION_SECONDS=3600
 DB_PATH=backend/data/english46.db
-RECENT_TURNS_LIMIT=6
+RECENT_TURNS_LIMIT=10
 ```
 
 ### Arranque

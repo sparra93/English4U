@@ -31,6 +31,8 @@ export interface TutorProfile {
   id: string;
   name: string;
   accent: string;
+  specialty: string;
+  tagline: string;
 }
 
 export interface LearnerProfile {

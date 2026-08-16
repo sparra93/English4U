@@ -158,7 +158,7 @@ class TutorServiceAskTests(unittest.TestCase):
             self.service.ask("hi", DEFAULT_TEACHING_CONFIG, self.learner, [])
 
         sent_messages = mock_post.call_args.kwargs["json"]["messages"]
-        self.assertIn("Your name is Emma.", sent_messages[0]["content"])
+        self.assertIn("Your own name is Emma", sent_messages[0]["content"])
 
     def test_selected_tutor_name_reaches_the_system_prompt(self) -> None:
         mock_response = _ollama_response(json.dumps(VALID_PAYLOAD))
@@ -169,7 +169,33 @@ class TutorServiceAskTests(unittest.TestCase):
             )
 
         sent_messages = mock_post.call_args.kwargs["json"]["messages"]
-        self.assertIn("Your name is Sophia.", sent_messages[0]["content"])
+        self.assertIn("Your own name is Sophia", sent_messages[0]["content"])
+
+    def test_tutor_behavior_prompt_reaches_the_system_prompt(self) -> None:
+        mock_response = _ollama_response(json.dumps(VALID_PAYLOAD))
+
+        with patch("backend.services.tutor_service.requests.post", return_value=mock_response) as mock_post:
+            self.service.ask(
+                "hi",
+                DEFAULT_TEACHING_CONFIG,
+                self.learner,
+                [],
+                tutor_name="Sophia",
+                tutor_behavior_prompt="Right now you are Sophia: curious and conversational.",
+            )
+
+        sent_messages = mock_post.call_args.kwargs["json"]["messages"]
+        self.assertIn("curious and conversational", sent_messages[0]["content"])
+
+    def test_generation_options_favor_conversational_variation(self) -> None:
+        mock_response = _ollama_response(json.dumps(VALID_PAYLOAD))
+
+        with patch("backend.services.tutor_service.requests.post", return_value=mock_response) as mock_post:
+            self.service.ask("hi", DEFAULT_TEACHING_CONFIG, self.learner, [])
+
+        sent_options = mock_post.call_args.kwargs["json"]["options"]
+        self.assertEqual(sent_options["temperature"], 0.7)
+        self.assertEqual(sent_options["top_p"], 0.9)
 
 
 if __name__ == "__main__":

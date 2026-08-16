@@ -33,7 +33,9 @@ class FakeTutorService:
     def check_health(self) -> bool:
         return True
 
-    def ask(self, transcription, config, learner, recent_turns, tutor_name="Emma"):  # noqa: ANN001
+    def ask(
+        self, transcription, config, learner, recent_turns, tutor_name="Emma", tutor_behavior_prompt=""
+    ):  # noqa: ANN001
         self.calls.append(
             {
                 "transcription": transcription,
@@ -41,6 +43,7 @@ class FakeTutorService:
                 "learner": learner,
                 "recent_turns": recent_turns,
                 "tutor_name": tutor_name,
+                "tutor_behavior_prompt": tutor_behavior_prompt,
             }
         )
 
@@ -199,8 +202,15 @@ class ApiTutorEndpointTests(unittest.TestCase):
         response = self.client.get("/api/tutors")
         self.assertEqual(response.status_code, 200)
 
-        ids = {tutor["id"] for tutor in response.json()["tutors"]}
+        tutors = response.json()["tutors"]
+        ids = {tutor["id"] for tutor in tutors}
         self.assertEqual(ids, {"emma", "james", "sophia", "michael", "nicole"})
+
+        for tutor in tutors:
+            self.assertTrue(tutor["specialty"])
+            self.assertTrue(tutor["tagline"])
+            self.assertNotIn("voice_id", tutor)
+            self.assertNotIn("behavior_prompt", tutor)
 
     def test_learner_defaults_to_no_tutor_selected(self) -> None:
         response = self.client.get("/api/learner")
@@ -241,6 +251,15 @@ class ApiTutorEndpointTests(unittest.TestCase):
         tts_service = self.main_module.app.state.tts
         self.assertEqual(tts_service.calls[-1]["voice"], "af_heart")
         self.assertEqual(tts_service.calls[-1]["lang_code"], "a")
+
+    def test_selected_tutor_behavior_prompt_reaches_the_tutor_service(self) -> None:
+        self.client.put("/api/learner/tutor", json={"tutor_id": "james"})
+        self._post_audio()
+
+        tutor_service = self.main_module.app.state.tutor
+        behavior_prompt = tutor_service.calls[-1]["tutor_behavior_prompt"]
+        self.assertIn("James", behavior_prompt)
+        self.assertIn("accuracy", behavior_prompt.lower())
 
 
 class ApiTutorEndpointStartupFailureTests(unittest.TestCase):

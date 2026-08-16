@@ -83,15 +83,35 @@ def _render_learner_context_block(learner: "LearnerRecord") -> str:
     return "\n".join(lines)
 
 
+def _ends_in_question(text: str) -> bool:
+    return text.strip().endswith("?")
+
+
+def _last_replies_were_all_questions(recent_turns: list["TurnRecord"], count: int = 2) -> bool:
+    """True when the tutor's own last `count` replies all ended in a question.
+
+    Prose instructions alone ("don't ask a question every turn") were not
+    enough to reliably break the model's default pattern — this checks the
+    actual conversation state in code and, when triggered, injects an
+    explicit one-turn reminder instead of relying on the model to notice on
+    its own.
+    """
+
+    if len(recent_turns) < count:
+        return False
+    return all(_ends_in_question(turn.teacher_output.response) for turn in recent_turns[-count:])
+
+
 def build_messages(
     config: TeachingConfig,
     learner: "LearnerRecord",
     recent_turns: list["TurnRecord"],
     transcription: str,
     tutor_name: str = "Emma",
+    tutor_behavior_prompt: str = "",
 ) -> list[dict[str, str]]:
-    """Assemble the layered prompt: role -> policy -> runtime config ->
-    learner context -> session history -> current task.
+    """Assemble the layered prompt: role -> tutor personality -> policy ->
+    runtime config -> learner context -> session history -> current task.
 
     Recent turns are rendered as real alternating user/assistant messages
     (the assistant side uses the spoken `response` text, not the raw
@@ -101,20 +121,39 @@ def build_messages(
 
     system_sections = [
         _load(ROLE_PROMPT_PATH),
-        f"Your name is {tutor_name}. If the student asks your name, answer "
-        f"naturally as {tutor_name} — never describe yourself as an AI, a "
-        "bot, or a language model.",
+        f"Your own name is {tutor_name} — that's who you are, the tutor. If "
+        f"the student asks your name, answer naturally as {tutor_name} — "
+        "never describe yourself as an AI, a bot, or a language model. Never "
+        "use this name to address the student — you don't know the "
+        "student's name unless they've told you theirs.",
+        tutor_behavior_prompt,
         _load(TEACHING_POLICY_PATH),
         _render_runtime_config_block(config),
         _render_learner_context_block(learner),
     ]
     messages: list[dict[str, str]] = [
-        {"role": "system", "content": "\n\n".join(system_sections)}
+        {
+            "role": "system",
+            "content": "\n\n".join(section for section in system_sections if section),
+        }
     ]
 
     for turn in recent_turns:
         messages.append({"role": "user", "content": turn.transcription})
         messages.append({"role": "assistant", "content": turn.teacher_output.response})
+
+    if _last_replies_were_all_questions(recent_turns):
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "Reminder: your last two replies both ended in a question. "
+                    "This time, do NOT end your response with a question — "
+                    "react with an observation, an opinion, or a "
+                    "reformulation instead."
+                ),
+            }
+        )
 
     messages.append({"role": "user", "content": transcription})
     return messages

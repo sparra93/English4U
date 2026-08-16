@@ -3,7 +3,13 @@ import { fetchLearner, fetchTutors, updateLearnerTutor } from "../services/learn
 import type { TutorProfile } from "../types/tutor";
 
 const DEFAULT_TUTOR_ID = "emma";
-const FALLBACK_TUTOR: TutorProfile = { id: DEFAULT_TUTOR_ID, name: "Emma", accent: "American" };
+const FALLBACK_TUTOR: TutorProfile = {
+  id: DEFAULT_TUTOR_ID,
+  name: "Emma",
+  accent: "American",
+  specialty: "Relaxed Practice",
+  tagline: "Build confidence through comfortable conversation.",
+};
 
 interface UseTutorProfileResult {
   tutors: TutorProfile[];

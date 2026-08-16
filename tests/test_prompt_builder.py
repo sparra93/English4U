@@ -93,13 +93,68 @@ class BuildMessagesTests(unittest.TestCase):
     def test_tutor_name_defaults_to_emma(self) -> None:
         learner = _make_learner()
         messages = build_messages(DEFAULT_TEACHING_CONFIG, learner, [], "Hi")
-        self.assertIn("Your name is Emma.", messages[0]["content"])
+        self.assertIn("Your own name is Emma", messages[0]["content"])
 
     def test_tutor_name_reflects_the_selected_tutor(self) -> None:
         learner = _make_learner()
         messages = build_messages(DEFAULT_TEACHING_CONFIG, learner, [], "Hi", tutor_name="James")
-        self.assertIn("Your name is James.", messages[0]["content"])
-        self.assertNotIn("Your name is Emma.", messages[0]["content"])
+        self.assertIn("Your own name is James", messages[0]["content"])
+        self.assertNotIn("Your own name is Emma", messages[0]["content"])
+
+    def test_tutor_behavior_prompt_is_included_when_provided(self) -> None:
+        learner = _make_learner()
+        messages = build_messages(
+            DEFAULT_TEACHING_CONFIG,
+            learner,
+            [],
+            "Hi",
+            tutor_name="James",
+            tutor_behavior_prompt="Right now you are James: direct and precise.",
+        )
+        self.assertIn("Right now you are James: direct and precise.", messages[0]["content"])
+
+    def test_no_question_reminder_injected_after_two_consecutive_questions(self) -> None:
+        learner = _make_learner()
+        turns = [
+            _make_turn("How was work?", "It was fine, thanks. How was yours?", 1),
+            _make_turn("Also fine.", "Glad to hear it. What are your plans tonight?", 2),
+        ]
+
+        messages = build_messages(DEFAULT_TEACHING_CONFIG, learner, turns, "Not sure yet.")
+
+        reminder_messages = [m for m in messages if "last two replies both ended" in m["content"]]
+        self.assertEqual(len(reminder_messages), 1)
+        # Reminder must come after the rendered history and before the
+        # current student turn, not buried inside the static system prompt.
+        self.assertEqual(messages[-1]["content"], "Not sure yet.")
+        self.assertEqual(messages[-2], reminder_messages[0])
+
+    def test_no_question_reminder_when_last_reply_was_not_a_question(self) -> None:
+        learner = _make_learner()
+        turns = [
+            _make_turn("How was work?", "It was fine, thanks. How was yours?", 1),
+            _make_turn("Also fine.", "Glad to hear it.", 2),
+        ]
+
+        messages = build_messages(DEFAULT_TEACHING_CONFIG, learner, turns, "Not sure yet.")
+
+        self.assertFalse(any("last two replies both ended" in m["content"] for m in messages))
+
+    def test_no_question_reminder_with_fewer_than_two_turns(self) -> None:
+        learner = _make_learner()
+        turns = [_make_turn("How was work?", "It was fine, thanks. How was yours?", 1)]
+
+        messages = build_messages(DEFAULT_TEACHING_CONFIG, learner, turns, "Not sure yet.")
+
+        self.assertFalse(any("last two replies both ended" in m["content"] for m in messages))
+
+    def test_no_stray_blank_section_when_behavior_prompt_is_empty(self) -> None:
+        learner = _make_learner()
+        messages = build_messages(DEFAULT_TEACHING_CONFIG, learner, [], "Hi")
+        # Sections are joined with a blank line between them; an empty
+        # behavior prompt must be dropped entirely rather than injecting a
+        # stray triple-newline gap into the system message.
+        self.assertNotIn("\n\n\n", messages[0]["content"])
 
 
 class StaticPromptRegressionGuardTests(unittest.TestCase):

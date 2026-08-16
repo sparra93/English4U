@@ -88,7 +88,8 @@ class TutorService:
                     "keep_alive": "30m",
                     "format": self._response_schema,
                     "options": {
-                        "temperature": 0.3,
+                        "temperature": 0.7,
+                        "top_p": 0.9,
                         "num_predict": 600,
                     },
                     "messages": messages,
@@ -118,13 +119,16 @@ class TutorService:
         learner: LearnerRecord,
         recent_turns: list[TurnRecord],
         tutor_name: str = "Emma",
+        tutor_behavior_prompt: str = "",
         timeout: float = 300.0,
     ) -> TutorResult:
         if not transcription.strip():
             raise TutorServiceError("Whisper returned an empty transcription.")
 
         start = time.perf_counter()
-        messages = build_messages(config, learner, recent_turns, transcription, tutor_name)
+        messages = build_messages(
+            config, learner, recent_turns, transcription, tutor_name, tutor_behavior_prompt
+        )
 
         last_error: Exception | None = None
         structured: TeacherReply | None = None
