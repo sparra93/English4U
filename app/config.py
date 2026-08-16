@@ -9,6 +9,27 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 APP_DIR = PROJECT_DIR / "app"
 GENERATED_DIR = APP_DIR / "generated"
 PROMPTS_DIR = APP_DIR / "prompts"
+ENV_FILE = PROJECT_DIR / ".env"
+
+
+def _load_env_file(path: Path) -> None:
+    if not path.is_file():
+        return
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        name, value = line.split("=", 1)
+        name = name.strip()
+        value = value.strip().strip("\"'")
+
+        if name and name not in os.environ:
+            os.environ[name] = value
+
+
+_load_env_file(ENV_FILE)
 
 
 def _get_int(name: str, default: int) -> int:

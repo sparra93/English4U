@@ -1,5 +1,9 @@
 # English Tutor
 
+Nota para agentes:
+
+- si necesitas una guia corta y operativa para levantar el proyecto, lee `AGENT_RUNBOOK.md`
+
 Aplicacion web ligera para practicar ingles hablado con un flujo local:
 
 `microfono del navegador -> Whisper -> Ollama -> Kokoro -> audio de respuesta`
@@ -26,22 +30,37 @@ El proyecto esta pensado para un estudiante hispanohablante. Transcribe audio en
 - TTS: `kokoro`
 - Frontend: HTML, CSS y JavaScript vanilla
 
+## Modos de despliegue
+
+Este proyecto ahora soporta dos formas de uso:
+
+- servidor central: corre Whisper, Ollama y Kokoro en una sola maquina
+- cliente proxy: corre solo la web y reenvia el procesamiento al servidor central
+
+La idea es que otro usuario pueda levantar el proyecto en su PC y solo tenga que indicar la IP de esta maquina.
+
 ## Requisitos
 
 Antes de arrancar, este proyecto asume lo siguiente:
 
-- Python disponible dentro de `venv/`
-- Ollama corriendo en `http://127.0.0.1:11434`
-- Modelo de Ollama descargado: `qwen3.5:9b-32k`
-- GPU CUDA recomendada para Whisper
+- servidor central:
+  - Python disponible dentro de `venv/`
+  - Ollama corriendo en `http://127.0.0.1:11434`
+  - modelo de Ollama descargado: `qwen3.5:9b-32k`
+  - GPU CUDA recomendada para Whisper
+- cliente proxy:
+  - Python disponible dentro de `venv/`
+  - conectividad hacia el servidor central en el puerto `8090`
 
 Punto importante: Whisper intenta cargar primero en GPU y, si falla, puede usar un fallback configurable a CPU.
 
 ## Configuracion
 
-La configuracion principal ahora sale de variables de entorno. Tienes una base en:
+La configuracion principal sale de variables de entorno. Tienes una base en:
 
-[`/home/soulblue/english-tutor/.env.example`](/home/soulblue/english-tutor/.env.example)
+- `.env.example`
+
+Tambien puedes crear un archivo `.env` en la raiz del proyecto. La app lo carga automaticamente al arrancar.
 
 Variables mas utiles:
 
@@ -57,14 +76,16 @@ Variables mas utiles:
 
 El prompt del tutor tambien se puede editar sin tocar la logica Python en:
 
-- [`app/prompts/tutor_system_prompt.txt`](/home/soulblue/english-tutor/app/prompts/tutor_system_prompt.txt)
+- `app/prompts/tutor_system_prompt.txt`
 
 ## Instalacion
 
-Crear o activar el entorno virtual e instalar dependencias:
+### Servidor central
+
+Crear o activar el entorno virtual e instalar dependencias completas:
 
 ```bash
-/home/soulblue/english-tutor/venv/bin/python -m pip install -r requirements.txt
+venv/bin/python -m pip install -r requirements.server.txt
 ```
 
 Si todavia no descargaste el modelo de Ollama:
@@ -73,10 +94,28 @@ Si todavia no descargaste el modelo de Ollama:
 ollama pull qwen3.5:9b-32k
 ```
 
+### Cliente proxy
+
+En un equipo que solo usara la UI y enviara todo al servidor central, instala solo las dependencias minimas:
+
+```bash
+venv/bin/python -m pip install -r requirements.proxy.txt
+```
+
+Crea `.env` con algo como esto:
+
+```bash
+REMOTE_BACKEND_BASE_URL=http://IP-DEL-SERVIDOR-CENTRAL:8090
+APP_HOST=0.0.0.0
+APP_PORT=8090
+```
+
+Con eso no hace falta instalar Ollama, descargar modelos ni levantar Whisper/Kokoro en el equipo cliente.
+
 ## Ejecutar la app web
 
 ```bash
-/home/soulblue/english-tutor/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090
+venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090
 ```
 
 Abrir en el navegador:
@@ -95,7 +134,6 @@ Ctrl+C
 Para desarrollo local con recarga automatica y HTTPS:
 
 ```bash
-cd /home/soulblue/english-tutor
 ./dev.sh
 ```
 
@@ -153,12 +191,12 @@ Ventajas de este enfoque:
 En el computador que estara encendido 24/7:
 
 ```bash
-/home/soulblue/english-tutor/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090
+venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090
 ```
 
-### Equipo de desarrollo
+### Equipo cliente o de desarrollo
 
-En cada equipo que clone el repo, define:
+En cada equipo que clone el repo, crea `.env` o define:
 
 ```bash
 export REMOTE_BACKEND_BASE_URL="http://IP-DEL-SERVIDOR-CENTRAL:8090"
@@ -173,12 +211,13 @@ Luego arranca normalmente:
 o:
 
 ```bash
-/home/soulblue/english-tutor/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090
+venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8090
 ```
 
 En este modo:
 
 - no se inicializan Whisper, Ollama ni Kokoro localmente
+- no hace falta tener instalados `faster-whisper`, `kokoro` ni Ollama en la maquina cliente si usas `requirements.proxy.txt`
 - `/api/tutor` se reenvia al servidor central
 - `/api/health` consulta el estado del servidor central
 - `/generated/*` se sirve por proxy desde el servidor central

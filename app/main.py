@@ -15,9 +15,6 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import GENERATED_DIR, settings
-from app.services.tts_service import TTSService, TTSServiceError
-from app.services.tutor_service import TutorService, TutorServiceError
-from app.services.whisper_service import WhisperService, WhisperServiceError
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -60,6 +57,21 @@ def _remote_url(path: str) -> str:
     return f"{base_url}{path}"
 
 
+def _load_local_service_classes() -> dict[str, type]:
+    from app.services.tts_service import TTSService, TTSServiceError
+    from app.services.tutor_service import TutorService, TutorServiceError
+    from app.services.whisper_service import WhisperService, WhisperServiceError
+
+    return {
+        "tts_service": TTSService,
+        "tts_error": TTSServiceError,
+        "tutor_service": TutorService,
+        "tutor_error": TutorServiceError,
+        "whisper_service": WhisperService,
+        "whisper_error": WhisperServiceError,
+    }
+
+
 def _proxy_json(method: str, path: str, **kwargs: object) -> JSONResponse:
     try:
         response = requests.request(method, _remote_url(path), timeout=300, **kwargs)
@@ -78,10 +90,14 @@ async def lifespan(app: FastAPI):
     if _is_proxy_mode():
         app.state.remote_backend_base_url = settings.remote_backend_base_url.rstrip("/")
     else:
+        service_classes = _load_local_service_classes()
         _cleanup_generated_audio()
-        app.state.whisper = WhisperService()
-        app.state.tutor = TutorService()
-        app.state.tts = TTSService()
+        app.state.whisper = service_classes["whisper_service"]()
+        app.state.tutor = service_classes["tutor_service"]()
+        app.state.tts = service_classes["tts_service"]()
+        app.state.whisper_error_type = service_classes["whisper_error"]
+        app.state.tutor_error_type = service_classes["tutor_error"]
+        app.state.tts_error_type = service_classes["tts_error"]
     yield
 
 
@@ -185,6 +201,9 @@ async def tutor(audio: UploadFile = File(...)) -> JSONResponse:
 
     upload_path: Path | None = None
     started_at = time.perf_counter()
+    whisper_error_type = getattr(app.state, "whisper_error_type", ())
+    tutor_error_type = getattr(app.state, "tutor_error_type", ())
+    tts_error_type = getattr(app.state, "tts_error_type", ())
 
     try:
         _cleanup_generated_audio()
@@ -223,13 +242,13 @@ async def tutor(audio: UploadFile = File(...)) -> JSONResponse:
         )
     except HTTPException:
         raise
-    except WhisperServiceError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except TutorServiceError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    except TTSServiceError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
     except Exception as exc:
+        if whisper_error_type and isinstance(exc, whisper_error_type):
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if tutor_error_type and isinstance(exc, tutor_error_type):
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        if tts_error_type and isinstance(exc, tts_error_type):
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
         raise HTTPException(status_code=500, detail="The tutor request failed unexpectedly.") from exc
     finally:
         await audio.close()
