@@ -10,12 +10,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.config import GENERATED_DIR, settings
+from backend.tutors import get_tutor, list_tutors
 
 MAX_SESSION_ID_LENGTH = 128
 MAX_HISTORY_LIMIT = 500
@@ -92,7 +93,10 @@ def _load_local_data_layer() -> dict[str, object]:
         format_vocabulary_for_display,
     )
     from backend.storage.db import init_db, session_scope
-    from backend.storage.learner_repository import get_or_create_default_learner
+    from backend.storage.learner_repository import (
+        get_or_create_default_learner,
+        update_learner_tutor,
+    )
     from backend.storage.session_repository import (
         get_or_create_session,
         list_sessions_for_learner,
@@ -113,6 +117,7 @@ def _load_local_data_layer() -> dict[str, object]:
         "init_db": init_db,
         "session_scope": session_scope,
         "get_or_create_default_learner": get_or_create_default_learner,
+        "update_learner_tutor": update_learner_tutor,
         "get_or_create_session": get_or_create_session,
         "list_sessions_for_learner": list_sessions_for_learner,
         "soft_delete_session": soft_delete_session,
@@ -387,6 +392,56 @@ async def delete_session(session_id: str) -> JSONResponse:
     return JSONResponse({"session_id": session_id, "deleted": True})
 
 
+@app.get("/api/tutors")
+async def tutors() -> JSONResponse:
+    # The catalog is static code, identical on every machine that runs this
+    # repo, so a proxy client can answer this locally without a round trip.
+    return JSONResponse(
+        {
+            "tutors": [
+                {"id": tutor.id, "name": tutor.name, "accent": tutor.accent}
+                for tutor in list_tutors()
+            ]
+        }
+    )
+
+
+@app.get("/api/learner")
+async def learner_profile() -> JSONResponse:
+    if _is_proxy_mode():
+        return _proxy_json("GET", "/api/learner")
+
+    data_layer = app.state.data_layer
+    learner = data_layer["get_or_create_default_learner"](settings.db_path)
+    return JSONResponse(
+        {"learner_id": learner.learner_id, "tutor_id": learner.tutor_id}
+    )
+
+
+@app.put("/api/learner/tutor")
+async def set_learner_tutor(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Request body must be JSON.") from exc
+
+    tutor_id = payload.get("tutor_id") if isinstance(payload, dict) else None
+    if not isinstance(tutor_id, str) or not tutor_id:
+        raise HTTPException(status_code=400, detail="tutor_id is required.")
+
+    if tutor_id not in {tutor.id for tutor in list_tutors()}:
+        raise HTTPException(status_code=400, detail=f"Unknown tutor_id: {tutor_id!r}.")
+
+    if _is_proxy_mode():
+        return _proxy_json("PUT", "/api/learner/tutor", json={"tutor_id": tutor_id})
+
+    data_layer = app.state.data_layer
+    learner = data_layer["update_learner_tutor"](settings.db_path, tutor_id)
+    return JSONResponse(
+        {"learner_id": learner.learner_id, "tutor_id": learner.tutor_id}
+    )
+
+
 @app.get("/generated/{file_path:path}")
 async def generated_proxy(file_path: str) -> Response:
     if not _is_proxy_mode():
@@ -494,6 +549,7 @@ async def tutor(
             raise HTTPException(status_code=400, detail="The recording was empty.")
 
         learner = data_layer["get_or_create_default_learner"](settings.db_path)
+        tutor = get_tutor(learner.tutor_id)
         data_layer["get_or_create_session"](settings.db_path, resolved_session_id, learner.learner_id)
         resolved_config = data_layer["resolve_teaching_config"](
             session_override=session_override,
@@ -509,6 +565,7 @@ async def tutor(
             resolved_config,
             learner,
             recent_turns,
+            tutor_name=tutor.name,
         )
 
         output_name = f"{uuid.uuid4().hex}.wav"
@@ -516,6 +573,8 @@ async def tutor(
         tts_result = tts_service.synthesize_to_file(
             tutor_result.voice_response,
             output_path,
+            voice=tutor.voice_id,
+            lang_code=tutor.lang_code,
         )
 
         data_layer["insert_turn"](

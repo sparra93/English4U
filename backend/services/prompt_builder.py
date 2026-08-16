@@ -88,6 +88,7 @@ def build_messages(
     learner: "LearnerRecord",
     recent_turns: list["TurnRecord"],
     transcription: str,
+    tutor_name: str = "Emma",
 ) -> list[dict[str, str]]:
     """Assemble the layered prompt: role -> policy -> runtime config ->
     learner context -> session history -> current task.
@@ -100,6 +101,9 @@ def build_messages(
 
     system_sections = [
         _load(ROLE_PROMPT_PATH),
+        f"Your name is {tutor_name}. If the student asks your name, answer "
+        f"naturally as {tutor_name} — never describe yourself as an AI, a "
+        "bot, or a language model.",
         _load(TEACHING_POLICY_PATH),
         _render_runtime_config_block(config),
         _render_learner_context_block(learner),

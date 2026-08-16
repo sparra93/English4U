@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS learners (
     vocabulary_per_session INTEGER,
     skill_focus_json TEXT,
     goals TEXT,
+    tutor_id TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -84,9 +85,13 @@ def _migrate(connection: sqlite3.Connection) -> None:
     databases created before that column existed.
     """
 
-    columns = {row["name"] for row in connection.execute("PRAGMA table_info(sessions)")}
-    if "deleted_at" not in columns:
+    session_columns = {row["name"] for row in connection.execute("PRAGMA table_info(sessions)")}
+    if "deleted_at" not in session_columns:
         connection.execute("ALTER TABLE sessions ADD COLUMN deleted_at TEXT")
+
+    learner_columns = {row["name"] for row in connection.execute("PRAGMA table_info(learners)")}
+    if "tutor_id" not in learner_columns:
+        connection.execute("ALTER TABLE learners ADD COLUMN tutor_id TEXT")
 
 
 def init_db(db_path: str | Path) -> None:

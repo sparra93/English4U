@@ -27,6 +27,17 @@ export interface HealthStatus {
 
 export type TutorPhase = "idle" | "recording" | "processing" | "playing" | "error";
 
+export interface TutorProfile {
+  id: string;
+  name: string;
+  accent: string;
+}
+
+export interface LearnerProfile {
+  learner_id: string;
+  tutor_id: string | null;
+}
+
 export interface ConversationTurn {
   id: string;
   role: "student" | "teacher";

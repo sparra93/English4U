@@ -8,7 +8,12 @@ from pathlib import Path
 from backend.schemas.teacher_output import TeacherReply
 from backend.schemas.teaching_config import TeachingConfigOverride, resolve_teaching_config
 from backend.storage.db import init_db
-from backend.storage.learner_repository import DEFAULT_LEARNER_ID, get_or_create_default_learner, update_learner_preferences
+from backend.storage.learner_repository import (
+    DEFAULT_LEARNER_ID,
+    get_or_create_default_learner,
+    update_learner_preferences,
+    update_learner_tutor,
+)
 from backend.storage.session_repository import get_or_create_session, touch_session
 from backend.storage.turn_repository import get_recent_turns, insert_turn
 
@@ -77,6 +82,7 @@ class LearnerRepositoryTests(StorageTestCase):
         self.assertEqual(first.created_at, second.created_at)
         self.assertIsNone(first.current_level)
         self.assertIsNone(first.correction_mode)
+        self.assertIsNone(first.tutor_id)
 
     def test_update_preferences_persists_and_reloads(self) -> None:
         get_or_create_default_learner(self.db_path)
@@ -98,6 +104,56 @@ class LearnerRepositoryTests(StorageTestCase):
         resolved = resolve_teaching_config(learner_preference=learner.to_override())
 
         self.assertEqual(resolved.current_level, "C1")
+
+    def test_update_tutor_persists_and_reloads(self) -> None:
+        get_or_create_default_learner(self.db_path)
+        updated = update_learner_tutor(self.db_path, "james")
+
+        self.assertEqual(updated.tutor_id, "james")
+
+        reloaded = get_or_create_default_learner(self.db_path)
+        self.assertEqual(reloaded.tutor_id, "james")
+
+    def test_update_tutor_does_not_touch_teaching_preferences(self) -> None:
+        update_learner_preferences(self.db_path, TeachingConfigOverride(current_level="B2"))
+        updated = update_learner_tutor(self.db_path, "sophia")
+
+        self.assertEqual(updated.tutor_id, "sophia")
+        self.assertEqual(updated.current_level, "B2")
+
+
+class LearnerTutorIdMigrationTests(StorageTestCase):
+    def test_init_db_adds_tutor_id_to_a_pre_existing_learners_table(self) -> None:
+        connection = sqlite3.connect(self.db_path)
+        try:
+            connection.execute(
+                """
+                CREATE TABLE learners (
+                    learner_id TEXT PRIMARY KEY,
+                    display_name TEXT,
+                    native_language TEXT NOT NULL DEFAULT 'es',
+                    current_level TEXT,
+                    target_level TEXT,
+                    correction_mode TEXT,
+                    teacher_strictness TEXT,
+                    english_exposure INTEGER,
+                    session_duration_minutes INTEGER,
+                    vocabulary_per_session INTEGER,
+                    skill_focus_json TEXT,
+                    goals TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        init_db(self.db_path)  # must not raise, and must add the missing column
+
+        learner = get_or_create_default_learner(self.db_path)
+        self.assertIsNone(learner.tutor_id)
 
 
 class SessionRepositoryTests(StorageTestCase):

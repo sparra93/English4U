@@ -117,13 +117,14 @@ class TutorService:
         config: TeachingConfig,
         learner: LearnerRecord,
         recent_turns: list[TurnRecord],
+        tutor_name: str = "Emma",
         timeout: float = 300.0,
     ) -> TutorResult:
         if not transcription.strip():
             raise TutorServiceError("Whisper returned an empty transcription.")
 
         start = time.perf_counter()
-        messages = build_messages(config, learner, recent_turns, transcription)
+        messages = build_messages(config, learner, recent_turns, transcription, tutor_name)
 
         last_error: Exception | None = None
         structured: TeacherReply | None = None

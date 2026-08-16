@@ -33,13 +33,14 @@ class FakeTutorService:
     def check_health(self) -> bool:
         return True
 
-    def ask(self, transcription, config, learner, recent_turns):  # noqa: ANN001
+    def ask(self, transcription, config, learner, recent_turns, tutor_name="Emma"):  # noqa: ANN001
         self.calls.append(
             {
                 "transcription": transcription,
                 "config": config,
                 "learner": learner,
                 "recent_turns": recent_turns,
+                "tutor_name": tutor_name,
             }
         )
 
@@ -63,7 +64,11 @@ class FakeTutorService:
 
 
 class FakeTTSService:
-    def synthesize_to_file(self, text, output_path):  # noqa: ANN001
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def synthesize_to_file(self, text, output_path, voice=None, lang_code=None):  # noqa: ANN001
+        self.calls.append({"text": text, "voice": voice, "lang_code": lang_code})
         return SimpleNamespace(output_path=str(output_path), elapsed_seconds=0.02)
 
 
@@ -190,7 +195,54 @@ class ApiTutorEndpointTests(unittest.TestCase):
         body = response.json()
         self.assertTrue(body["database"])
 
- 
+    def test_tutors_catalog_lists_emma_and_four_others(self) -> None:
+        response = self.client.get("/api/tutors")
+        self.assertEqual(response.status_code, 200)
+
+        ids = {tutor["id"] for tutor in response.json()["tutors"]}
+        self.assertEqual(ids, {"emma", "james", "sophia", "michael", "nicole"})
+
+    def test_learner_defaults_to_no_tutor_selected(self) -> None:
+        response = self.client.get("/api/learner")
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["tutor_id"])
+
+    def test_setting_an_unknown_tutor_id_is_rejected(self) -> None:
+        response = self.client.put("/api/learner/tutor", json={"tutor_id": "not-a-real-tutor"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_setting_a_valid_tutor_id_persists(self) -> None:
+        response = self.client.put("/api/learner/tutor", json={"tutor_id": "james"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["tutor_id"], "james")
+
+        reloaded = self.client.get("/api/learner")
+        self.assertEqual(reloaded.json()["tutor_id"], "james")
+
+    def test_selected_tutor_name_and_voice_reach_the_services(self) -> None:
+        set_response = self.client.put("/api/learner/tutor", json={"tutor_id": "sophia"})
+        self.assertEqual(set_response.status_code, 200)
+
+        self._post_audio()
+
+        tutor_service = self.main_module.app.state.tutor
+        self.assertEqual(tutor_service.calls[-1]["tutor_name"], "Sophia")
+
+        tts_service = self.main_module.app.state.tts
+        self.assertEqual(tts_service.calls[-1]["voice"], "bf_emma")
+        self.assertEqual(tts_service.calls[-1]["lang_code"], "b")
+
+    def test_default_tutor_is_emma_when_none_selected(self) -> None:
+        self._post_audio()
+
+        tutor_service = self.main_module.app.state.tutor
+        self.assertEqual(tutor_service.calls[-1]["tutor_name"], "Emma")
+
+        tts_service = self.main_module.app.state.tts
+        self.assertEqual(tts_service.calls[-1]["voice"], "af_heart")
+        self.assertEqual(tts_service.calls[-1]["lang_code"], "a")
+
+
 class ApiTutorEndpointStartupFailureTests(unittest.TestCase):
     def setUp(self) -> None:
         import backend.main as main_module

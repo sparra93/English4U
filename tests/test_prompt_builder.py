@@ -24,6 +24,7 @@ def _make_learner(**overrides: object) -> LearnerRecord:
         vocabulary_per_session=None,
         skill_focus=None,
         goals=None,
+        tutor_id=None,
         created_at="2026-01-01T00:00:00+00:00",
         updated_at="2026-01-01T00:00:00+00:00",
     )
@@ -88,6 +89,17 @@ class BuildMessagesTests(unittest.TestCase):
         learner = _make_learner(goals=None)
         messages = build_messages(DEFAULT_TEACHING_CONFIG, learner, [], "Hi")
         self.assertIn("No further learner history is available yet.", messages[0]["content"])
+
+    def test_tutor_name_defaults_to_emma(self) -> None:
+        learner = _make_learner()
+        messages = build_messages(DEFAULT_TEACHING_CONFIG, learner, [], "Hi")
+        self.assertIn("Your name is Emma.", messages[0]["content"])
+
+    def test_tutor_name_reflects_the_selected_tutor(self) -> None:
+        learner = _make_learner()
+        messages = build_messages(DEFAULT_TEACHING_CONFIG, learner, [], "Hi", tutor_name="James")
+        self.assertIn("Your name is James.", messages[0]["content"])
+        self.assertNotIn("Your name is Emma.", messages[0]["content"])
 
 
 class StaticPromptRegressionGuardTests(unittest.TestCase):

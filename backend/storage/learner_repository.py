@@ -25,6 +25,7 @@ class LearnerRecord:
     vocabulary_per_session: int | None
     skill_focus: dict[str, float] | None
     goals: str | None
+    tutor_id: str | None
     created_at: str
     updated_at: str
 
@@ -64,6 +65,7 @@ def _row_to_record(row: object) -> LearnerRecord:
         vocabulary_per_session=row["vocabulary_per_session"],
         skill_focus=json.loads(skill_focus_json) if skill_focus_json else None,
         goals=row["goals"],
+        tutor_id=row["tutor_id"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -128,6 +130,30 @@ def update_learner_preferences(
         connection.execute(
             f"UPDATE learners SET {set_clause} WHERE learner_id = ?",
             (*updates.values(), learner_id),
+        )
+
+    return get_or_create_default_learner(db_path, learner_id)
+
+
+def update_learner_tutor(
+    db_path: str | Path,
+    tutor_id: str,
+    learner_id: str = DEFAULT_LEARNER_ID,
+) -> LearnerRecord:
+    """Persist which tutor the learner picked.
+
+    Not part of `TeachingConfigOverride` — tutor/voice identity isn't a
+    pedagogy field with session-override precedence, it's a standing
+    learner preference.
+    """
+
+    get_or_create_default_learner(db_path, learner_id)
+
+    now = datetime.now(timezone.utc).isoformat()
+    with session_scope(db_path) as connection:
+        connection.execute(
+            "UPDATE learners SET tutor_id = ?, updated_at = ? WHERE learner_id = ?",
+            (tutor_id, now, learner_id),
         )
 
     return get_or_create_default_learner(db_path, learner_id)

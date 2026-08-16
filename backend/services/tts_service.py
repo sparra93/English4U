@@ -12,6 +12,11 @@ from backend.config import settings
 
 SAMPLE_RATE = 24000
 
+# Lang codes for the accents in backend/tutors.py — warmed up eagerly at
+# startup so switching tutors mid-session never pays pipeline-construction
+# latency on the first request for an accent.
+KNOWN_LANG_CODES = ("a", "b")
+
 
 class TTSServiceError(RuntimeError):
     """Raised when speech synthesis fails."""
@@ -25,22 +30,39 @@ class TTSResult:
 
 class TTSService:
     def __init__(self) -> None:
-        self.pipeline = KPipeline(
-            lang_code="a",
-            repo_id=settings.tts_repo_id,
-        )
-        self.voice_name = settings.tts_voice
+        self.default_voice_name = settings.tts_voice
+        self.default_lang_code = "a"
+        self._pipelines: dict[str, KPipeline] = {}
 
-    def synthesize_to_file(self, text: str, output_path: str | Path) -> TTSResult:
+        for lang_code in KNOWN_LANG_CODES:
+            self._get_pipeline(lang_code)
+
+    def _get_pipeline(self, lang_code: str) -> KPipeline:
+        pipeline = self._pipelines.get(lang_code)
+        if pipeline is None:
+            pipeline = KPipeline(lang_code=lang_code, repo_id=settings.tts_repo_id)
+            self._pipelines[lang_code] = pipeline
+        return pipeline
+
+    def synthesize_to_file(
+        self,
+        text: str,
+        output_path: str | Path,
+        voice: str | None = None,
+        lang_code: str | None = None,
+    ) -> TTSResult:
         if not text.strip():
             raise TTSServiceError("Cannot synthesize empty tutor speech.")
+
+        voice_name = voice or self.default_voice_name
+        pipeline = self._get_pipeline(lang_code or self.default_lang_code)
 
         start = time.perf_counter()
 
         try:
-            generator = self.pipeline(
+            generator = pipeline(
                 text,
-                voice=self.voice_name,
+                voice=voice_name,
                 speed=1.0,
             )
 

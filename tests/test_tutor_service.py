@@ -45,6 +45,7 @@ def _make_learner() -> LearnerRecord:
         vocabulary_per_session=None,
         skill_focus=None,
         goals=None,
+        tutor_id=None,
         created_at="2026-01-01T00:00:00+00:00",
         updated_at="2026-01-01T00:00:00+00:00",
     )
@@ -149,6 +150,26 @@ class TutorServiceAskTests(unittest.TestCase):
         sent_format = mock_post.call_args.kwargs["json"]["format"]
         self.assertNotIn("$ref", json.dumps(sent_format))
         self.assertNotIn("$defs", sent_format)
+
+    def test_tutor_name_defaults_to_emma_in_the_system_prompt(self) -> None:
+        mock_response = _ollama_response(json.dumps(VALID_PAYLOAD))
+
+        with patch("backend.services.tutor_service.requests.post", return_value=mock_response) as mock_post:
+            self.service.ask("hi", DEFAULT_TEACHING_CONFIG, self.learner, [])
+
+        sent_messages = mock_post.call_args.kwargs["json"]["messages"]
+        self.assertIn("Your name is Emma.", sent_messages[0]["content"])
+
+    def test_selected_tutor_name_reaches_the_system_prompt(self) -> None:
+        mock_response = _ollama_response(json.dumps(VALID_PAYLOAD))
+
+        with patch("backend.services.tutor_service.requests.post", return_value=mock_response) as mock_post:
+            self.service.ask(
+                "hi", DEFAULT_TEACHING_CONFIG, self.learner, [], tutor_name="Sophia"
+            )
+
+        sent_messages = mock_post.call_args.kwargs["json"]["messages"]
+        self.assertIn("Your name is Sophia.", sent_messages[0]["content"])
 
 
 if __name__ == "__main__":
