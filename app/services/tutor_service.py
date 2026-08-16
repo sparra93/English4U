@@ -1,36 +1,43 @@
 from __future__ import annotations
 
+import json
+import logging
 import time
 from dataclasses import dataclass
-from pathlib import Path
 
 import requests
+from pydantic import ValidationError
 
-from app.config import PROMPTS_DIR, settings
+from app.config import settings
+from app.schemas.teacher_output import CorrectionItem, TeacherReply, VocabularySuggestion, inline_refs
+from app.schemas.teaching_config import TeachingConfig
+from app.services.prompt_builder import build_messages
+from app.storage.learner_repository import LearnerRecord
+from app.storage.turn_repository import TurnRecord
 
-SYSTEM_PROMPT_PATH = PROMPTS_DIR / "tutor_system_prompt.txt"
+logger = logging.getLogger(__name__)
+
 OLLAMA_URL = f"{settings.ollama_base_url.rstrip('/')}/api/chat"
 OLLAMA_TAGS_URL = f"{settings.ollama_base_url.rstrip('/')}/api/tags"
 
-
-def load_system_prompt(prompt_path: str | Path = SYSTEM_PROMPT_PATH) -> str:
-    return Path(prompt_path).read_text(encoding="utf-8").strip()
-
-SECTION_NAMES = (
-    "RESPONSE",
-    "CORRECTIONS",
-    "NATURAL VERSION",
-    "VOCABULARY",
-)
+MAX_ATTEMPTS = 2  # one initial attempt + one retry
 
 
 class TutorServiceError(RuntimeError):
-    """Raised when the LLM response cannot be produced or parsed."""
+    """Raised when the LLM response cannot be produced."""
+
+
+class TutorValidationError(TutorServiceError):
+    """Raised when the model's reply never validates against the required schema.
+
+    Deliberately never accompanied by a fabricated response: callers must
+    surface this as an explicit failure, not silently substitute default text.
+    """
 
 
 @dataclass
 class TutorResult:
-    raw_answer: str
+    structured: TeacherReply
     response: str
     corrections: str
     natural_version: str
@@ -39,53 +46,28 @@ class TutorResult:
     elapsed_seconds: float
 
 
-def parse_tutor_answer(answer: str) -> tuple[str, str, str, str]:
-    if not answer.strip():
-        raise TutorServiceError("Ollama returned an empty response.")
+def format_corrections_for_display(corrections: list[CorrectionItem]) -> str:
+    if not corrections:
+        return "No important corrections."
 
-    normalized = answer.replace("\r\n", "\n")
-    positions: dict[str, int] = {}
+    lines: list[str] = []
+    for item in corrections:
+        lines.append(f"{item.original} -> {item.corrected}")
+        lines.append(item.explanation)
+    return "\n".join(lines)
 
-    for section in SECTION_NAMES:
-        marker = f"{section}:"
-        index = normalized.find(marker)
-        if index != -1:
-            positions[section] = index
 
-    if not positions:
-        response = normalized.strip()
-        return (
-            response,
-            "No important corrections.",
-            response,
-            "No vocabulary suggestion provided.",
-        )
+def format_vocabulary_for_display(vocabulary: VocabularySuggestion | None) -> str:
+    if vocabulary is None:
+        return "No vocabulary suggestion provided."
 
-    extracted: dict[str, str] = {}
-    ordered = sorted(positions.items(), key=lambda item: item[1])
-
-    for offset, (section, start_index) in enumerate(ordered):
-        start = start_index + len(section) + 1
-        end = len(normalized)
-        if offset + 1 < len(ordered):
-            end = ordered[offset + 1][1]
-        extracted[section] = normalized[start:end].strip()
-
-    response = extracted.get("RESPONSE", "").strip()
-    corrections = extracted.get("CORRECTIONS", "").strip() or "No important corrections."
-    natural_version = extracted.get("NATURAL VERSION", "").strip() or response
-    vocabulary = extracted.get("VOCABULARY", "").strip() or "No vocabulary suggestion provided."
-
-    if not response:
-        raise TutorServiceError("Ollama returned an empty voice response.")
-
-    return response, corrections, natural_version, vocabulary
+    return f"{vocabulary.term}\n{vocabulary.meaning} — {vocabulary.example_usage}"
 
 
 class TutorService:
     def __init__(self) -> None:
         self.model_name = settings.ollama_model
-        self.system_prompt = load_system_prompt()
+        self._response_schema = inline_refs(TeacherReply.model_json_schema())
 
     def check_health(self, timeout: float = 3.0) -> bool:
         try:
@@ -95,12 +77,7 @@ class TutorService:
             return False
         return True
 
-    def ask(self, transcription: str, timeout: float = 300.0) -> TutorResult:
-        if not transcription.strip():
-            raise TutorServiceError("Whisper returned an empty transcription.")
-
-        start = time.perf_counter()
-
+    def _call_ollama(self, messages: list[dict[str, str]], timeout: float) -> str:
         try:
             response = requests.post(
                 OLLAMA_URL,
@@ -109,20 +86,12 @@ class TutorService:
                     "stream": False,
                     "think": False,
                     "keep_alive": "30m",
+                    "format": self._response_schema,
                     "options": {
-                        "temperature": 0.4,
-                        "num_predict": 500,
+                        "temperature": 0.3,
+                        "num_predict": 600,
                     },
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": self.system_prompt,
-                        },
-                        {
-                            "role": "user",
-                            "content": transcription,
-                        },
-                    ],
+                    "messages": messages,
                 },
                 timeout=timeout,
             )
@@ -132,18 +101,75 @@ class TutorService:
         except requests.RequestException as exc:
             raise TutorServiceError("Ollama is unavailable.") from exc
 
-        elapsed_seconds = time.perf_counter() - start
         data = response.json()
-        answer = data.get("message", {}).get("content", "").strip()
+        content = data.get("message", {}).get("content", "").strip()
+        if not content:
+            raise TutorServiceError("Ollama returned an empty response.")
+        return content
 
-        response_text, corrections, natural_version, vocabulary = parse_tutor_answer(answer)
+    def _parse_and_validate(self, content: str) -> TeacherReply:
+        parsed = json.loads(content)  # may raise json.JSONDecodeError
+        return TeacherReply.model_validate(parsed)  # may raise pydantic.ValidationError
+
+    def ask(
+        self,
+        transcription: str,
+        config: TeachingConfig,
+        learner: LearnerRecord,
+        recent_turns: list[TurnRecord],
+        timeout: float = 300.0,
+    ) -> TutorResult:
+        if not transcription.strip():
+            raise TutorServiceError("Whisper returned an empty transcription.")
+
+        start = time.perf_counter()
+        messages = build_messages(config, learner, recent_turns, transcription)
+
+        last_error: Exception | None = None
+        structured: TeacherReply | None = None
+
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            raw_content = self._call_ollama(messages, timeout)
+
+            try:
+                structured = self._parse_and_validate(raw_content)
+                break
+            except (json.JSONDecodeError, ValidationError) as exc:
+                last_error = exc
+                logger.warning(
+                    "Tutor reply failed schema validation on attempt %s: %s | raw=%r",
+                    attempt,
+                    exc,
+                    raw_content[:500],
+                )
+                if attempt < MAX_ATTEMPTS:
+                    messages = messages + [
+                        {"role": "assistant", "content": raw_content},
+                        {
+                            "role": "user",
+                            "content": (
+                                "Your previous reply did not match the required JSON "
+                                f"schema ({exc}). Respond again with ONLY a single "
+                                "JSON object matching the schema — no text outside "
+                                "the JSON."
+                            ),
+                        },
+                    ]
+
+        if structured is None:
+            raise TutorValidationError(
+                "The tutor could not produce a response matching the required "
+                f"schema after {MAX_ATTEMPTS} attempts."
+            ) from last_error
+
+        elapsed_seconds = time.perf_counter() - start
 
         return TutorResult(
-            raw_answer=answer,
-            response=response_text,
-            corrections=corrections,
-            natural_version=natural_version,
-            vocabulary=vocabulary,
-            voice_response=response_text,
+            structured=structured,
+            response=structured.response,
+            corrections=format_corrections_for_display(structured.corrections),
+            natural_version=structured.natural_version,
+            vocabulary=format_vocabulary_for_display(structured.vocabulary),
+            voice_response=structured.response,
             elapsed_seconds=elapsed_seconds,
         )

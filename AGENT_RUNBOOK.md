@@ -18,11 +18,19 @@ Regla principal:
 
 - `app/main.py`: app FastAPI principal
 - `app/config.py`: carga `.env` automaticamente
+- `app/schemas/`: esquemas Pydantic (salida estructurada del tutor, configuracion de ensenanza)
+- `app/storage/`: acceso a la base de datos SQLite (alumno, sesiones, turnos)
 - `.env.example`: plantilla de configuracion
 - `requirements.server.txt`: dependencias completas del servidor central
 - `requirements.proxy.txt`: dependencias minimas para cliente proxy
+- `requirements-dev.txt`: dependencias adicionales solo para correr los tests (incluye `httpx2`, requerido por `TestClient`)
 - `dev.sh`: arranque local con HTTPS para usar microfono en navegador
 - `server.sh`: arranque del servidor central en HTTP local con Tailscale Serve opcional
+
+Nota importante: la persistencia (SQLite) y la resolucion de configuracion de
+ensenanza (Pydantic) solo se cargan en modo `server`. El modo `proxy` nunca
+importa `app/schemas/` ni `app/storage/` — sigue siendo un reenviador HTTP
+delgado, igual que hoy con Whisper, Ollama y Kokoro.
 
 ## Modo 1: servidor central
 
@@ -60,6 +68,8 @@ WHISPER_FALLBACK_COMPUTE_TYPE=int8
 TTS_VOICE=af_heart
 TTS_REPO_ID=hexgrad/Kokoro-82M
 GENERATED_RETENTION_SECONDS=3600
+DB_PATH=app/data/english46.db
+RECENT_TURNS_LIMIT=6
 ```
 
 ### Arranque

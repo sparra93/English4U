@@ -1,0 +1,4 @@
+-r requirements.server.txt
+
+# Only needed to run tests/test_api_tutor_endpoint.py (fastapi.testclient.TestClient).
+httpx2

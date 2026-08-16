@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 import tempfile
 import time
@@ -9,12 +10,14 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import GENERATED_DIR, settings
+
+MAX_SESSION_ID_LENGTH = 128
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -72,6 +75,35 @@ def _load_local_service_classes() -> dict[str, type]:
     }
 
 
+def _load_local_data_layer() -> dict[str, object]:
+    """Everything that touches Pydantic schemas or SQLite storage.
+
+    Kept behind a lazy import, same pattern as `_load_local_service_classes`,
+    so proxy mode never imports Pydantic or the storage layer at all.
+    """
+
+    from pydantic import ValidationError
+
+    from app.schemas.teaching_config import TeachingConfigOverride, resolve_teaching_config
+    from app.storage.db import init_db, session_scope
+    from app.storage.learner_repository import get_or_create_default_learner
+    from app.storage.session_repository import get_or_create_session, touch_session
+    from app.storage.turn_repository import get_recent_turns, insert_turn
+
+    return {
+        "validation_error": ValidationError,
+        "teaching_config_override": TeachingConfigOverride,
+        "resolve_teaching_config": resolve_teaching_config,
+        "init_db": init_db,
+        "session_scope": session_scope,
+        "get_or_create_default_learner": get_or_create_default_learner,
+        "get_or_create_session": get_or_create_session,
+        "touch_session": touch_session,
+        "get_recent_turns": get_recent_turns,
+        "insert_turn": insert_turn,
+    }
+
+
 def _proxy_json(method: str, path: str, **kwargs: object) -> JSONResponse:
     try:
         response = requests.request(method, _remote_url(path), timeout=300, **kwargs)
@@ -91,13 +123,16 @@ async def lifespan(app: FastAPI):
         app.state.remote_backend_base_url = settings.remote_backend_base_url.rstrip("/")
     else:
         service_classes = _load_local_service_classes()
+        data_layer = _load_local_data_layer()
         _cleanup_generated_audio()
+        data_layer["init_db"](settings.db_path)
         app.state.whisper = service_classes["whisper_service"]()
         app.state.tutor = service_classes["tutor_service"]()
         app.state.tts = service_classes["tts_service"]()
         app.state.whisper_error_type = service_classes["whisper_error"]
         app.state.tutor_error_type = service_classes["tutor_error"]
         app.state.tts_error_type = service_classes["tts_error"]
+        app.state.data_layer = data_layer
     yield
 
 
@@ -147,12 +182,23 @@ async def health() -> JSONResponse:
     if tutor_service is not None:
         ollama_ok = tutor_service.check_health()
 
+    database_ok = False
+    data_layer = getattr(app.state, "data_layer", None)
+    if data_layer is not None:
+        try:
+            with data_layer["session_scope"](settings.db_path) as connection:
+                connection.execute("SELECT 1")
+            database_ok = True
+        except Exception:
+            database_ok = False
+
     return JSONResponse(
         {
-            "status": "ok" if whisper_ok and tts_ok and ollama_ok else "degraded",
+            "status": "ok" if whisper_ok and tts_ok and ollama_ok and database_ok else "degraded",
             "whisper": whisper_ok,
             "ollama": ollama_ok,
             "tts": tts_ok,
+            "database": database_ok,
         }
     )
 
@@ -177,7 +223,11 @@ async def generated_proxy(file_path: str) -> Response:
 
 
 @app.post("/api/tutor")
-async def tutor(audio: UploadFile = File(...)) -> JSONResponse:
+async def tutor(
+    audio: UploadFile = File(...),
+    session_id: str | None = Form(None),
+    teaching_config_override: str | None = Form(None),
+) -> JSONResponse:
     if not audio.filename and not audio.content_type:
         raise HTTPException(status_code=400, detail="No audio file was received.")
 
@@ -195,7 +245,13 @@ async def tutor(audio: UploadFile = File(...)) -> JSONResponse:
                     audio.content_type or "application/octet-stream",
                 )
             }
-            return _proxy_json("POST", "/api/tutor", files=files)
+            data = {}
+            if session_id:
+                data["session_id"] = session_id
+            if teaching_config_override:
+                data["teaching_config_override"] = teaching_config_override
+
+            return _proxy_json("POST", "/api/tutor", files=files, data=data)
         finally:
             await audio.close()
 
@@ -204,22 +260,73 @@ async def tutor(audio: UploadFile = File(...)) -> JSONResponse:
     whisper_error_type = getattr(app.state, "whisper_error_type", ())
     tutor_error_type = getattr(app.state, "tutor_error_type", ())
     tts_error_type = getattr(app.state, "tts_error_type", ())
+    data_layer = app.state.data_layer
 
     try:
+        if session_id and len(session_id) > MAX_SESSION_ID_LENGTH:
+            raise HTTPException(status_code=400, detail="session_id is too long.")
+        resolved_session_id = session_id or uuid.uuid4().hex
+
+        session_override = None
+        if teaching_config_override:
+            try:
+                override_payload = json.loads(teaching_config_override)
+                session_override = data_layer["teaching_config_override"](**override_payload)
+            except json.JSONDecodeError as exc:
+                raise HTTPException(
+                    status_code=400, detail="teaching_config_override is not valid JSON."
+                ) from exc
+            except data_layer["validation_error"] as exc:
+                raise HTTPException(
+                    status_code=400, detail=f"teaching_config_override is invalid: {exc}"
+                ) from exc
+
         _cleanup_generated_audio()
         upload_path = _save_uploaded_audio(audio)
 
         if upload_path.stat().st_size == 0:
             raise HTTPException(status_code=400, detail="The recording was empty.")
 
+        learner = data_layer["get_or_create_default_learner"](settings.db_path)
+        data_layer["get_or_create_session"](settings.db_path, resolved_session_id, learner.learner_id)
+        resolved_config = data_layer["resolve_teaching_config"](
+            session_override=session_override,
+            learner_preference=learner.to_override(),
+        )
+        recent_turns = data_layer["get_recent_turns"](
+            settings.db_path, resolved_session_id, settings.recent_turns_limit
+        )
+
         whisper_result = app.state.whisper.transcribe_file(upload_path)
-        tutor_result = app.state.tutor.ask(whisper_result.transcription)
+        tutor_result = app.state.tutor.ask(
+            whisper_result.transcription,
+            resolved_config,
+            learner,
+            recent_turns,
+        )
 
         output_name = f"{uuid.uuid4().hex}.wav"
         output_path = GENERATED_DIR / output_name
         tts_result = app.state.tts.synthesize_to_file(
             tutor_result.voice_response,
             output_path,
+        )
+
+        data_layer["insert_turn"](
+            settings.db_path,
+            resolved_session_id,
+            whisper_result.transcription,
+            tutor_result.structured,
+            tutor_result.voice_response,
+            whisper_result.elapsed_seconds,
+            tutor_result.elapsed_seconds,
+            tts_result.elapsed_seconds,
+        )
+        data_layer["touch_session"](
+            settings.db_path,
+            resolved_session_id,
+            resolved_config,
+            teaching_config_override,
         )
 
         total_seconds = time.perf_counter() - started_at
@@ -231,6 +338,7 @@ async def tutor(audio: UploadFile = File(...)) -> JSONResponse:
                 "corrections": tutor_result.corrections,
                 "natural_version": tutor_result.natural_version,
                 "vocabulary": tutor_result.vocabulary,
+                "session_id": resolved_session_id,
                 "timings": {
                     "whisper": round(whisper_result.elapsed_seconds, 3),
                     "ollama": round(tutor_result.elapsed_seconds, 3),

@@ -9,6 +9,7 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 APP_DIR = PROJECT_DIR / "app"
 GENERATED_DIR = APP_DIR / "generated"
 PROMPTS_DIR = APP_DIR / "prompts"
+DATA_DIR = APP_DIR / "data"
 ENV_FILE = PROJECT_DIR / ".env"
 
 
@@ -59,6 +60,8 @@ class Settings:
     tts_voice: str = os.getenv("TTS_VOICE", "af_heart")
     tts_repo_id: str = os.getenv("TTS_REPO_ID", "hexgrad/Kokoro-82M")
     generated_retention_seconds: int = _get_int("GENERATED_RETENTION_SECONDS", 3600)
+    db_path: str = os.getenv("DB_PATH", str(DATA_DIR / "english46.db"))
+    recent_turns_limit: int = _get_int("RECENT_TURNS_LIMIT", 6)
 
 
 settings = Settings()

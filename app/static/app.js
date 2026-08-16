@@ -74,7 +74,15 @@ const state = {
   currentAudioUrl: "",
   latestFeedback: null,
   latestTimings: null,
+  sessionId: "",
 };
+
+function ensureSessionId() {
+  if (!state.sessionId && window.crypto && typeof window.crypto.randomUUID === "function") {
+    state.sessionId = window.crypto.randomUUID();
+    saveSessionState();
+  }
+}
 
 function loadSessionState() {
   try {
@@ -101,6 +109,10 @@ function loadSessionState() {
     if (parsed.latestTimings && typeof parsed.latestTimings === "object") {
       state.latestTimings = parsed.latestTimings;
     }
+
+    if (typeof parsed.sessionId === "string" && parsed.sessionId) {
+      state.sessionId = parsed.sessionId;
+    }
   } catch {
     window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
   }
@@ -111,6 +123,7 @@ function saveSessionState() {
     messages: state.messages,
     latestFeedback: state.latestFeedback,
     latestTimings: state.latestTimings,
+    sessionId: state.sessionId,
   };
 
   try {
@@ -533,6 +546,9 @@ async function handleRecordingStop() {
   const extension = extensionFromMimeType(state.mediaRecorder.mimeType);
   const formData = new FormData();
   formData.append("audio", blob, `recording.${extension}`);
+  if (state.sessionId) {
+    formData.append("session_id", state.sessionId);
+  }
 
   try {
     const response = await fetch("/api/tutor", {
@@ -556,6 +572,9 @@ async function handleRecordingStop() {
       vocabulary: data.vocabulary || "",
     };
     state.latestTimings = data.timings || {};
+    if (data.session_id) {
+      state.sessionId = data.session_id;
+    }
     saveSessionState();
 
     renderConversation();
@@ -633,6 +652,7 @@ responseAudio.addEventListener("error", () => {
 
 recordingWave.dataset.active = "false";
 loadSessionState();
+ensureSessionId();
 resetTimings();
 renderConversation();
 if (state.latestFeedback) {
