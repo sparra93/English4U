@@ -162,7 +162,7 @@ class LearnerTutorIdMigrationTests(StorageTestCase):
 
 
 class SessionTutorIdAndTitleMigrationTests(StorageTestCase):
-    def test_init_db_adds_tutor_id_and_title_to_a_pre_existing_sessions_table(self) -> None:
+    def test_init_db_adds_tutor_id_title_and_level_to_a_pre_existing_sessions_table(self) -> None:
         connection = sqlite3.connect(self.db_path)
         try:
             connection.execute(
@@ -189,6 +189,7 @@ class SessionTutorIdAndTitleMigrationTests(StorageTestCase):
         session = get_or_create_session(self.db_path, "sess-1", learner.learner_id)
         self.assertIsNone(session.tutor_id)
         self.assertIsNone(session.title)
+        self.assertIsNone(session.level)
 
 
 class SessionRepositoryTests(StorageTestCase):
@@ -234,6 +235,17 @@ class SessionRepositoryTests(StorageTestCase):
             self.db_path, "sess-1", self.learner.learner_id, tutor_id="sophia"
         )
         self.assertEqual(second.tutor_id, "james")
+
+    def test_level_is_set_on_first_creation(self) -> None:
+        session = get_or_create_session(
+            self.db_path, "sess-1", self.learner.learner_id, level="A2"
+        )
+        self.assertEqual(session.level, "A2")
+
+    def test_level_is_locked_after_first_creation(self) -> None:
+        get_or_create_session(self.db_path, "sess-1", self.learner.learner_id, level="A2")
+        second = get_or_create_session(self.db_path, "sess-1", self.learner.learner_id, level="C1")
+        self.assertEqual(second.level, "A2")
 
     def test_get_session_returns_none_for_unknown_id(self) -> None:
         self.assertIsNone(get_session(self.db_path, "does-not-exist"))

@@ -22,6 +22,8 @@ from backend.tutors import get_tutor, list_tutors
 MAX_SESSION_ID_LENGTH = 128
 MAX_HISTORY_LIMIT = 500
 DEFAULT_HISTORY_LIMIT = 200
+CEFR_LEVELS = ("A1", "A2", "B1", "B2", "C1", "C2")
+DEFAULT_LEVEL = "B1"
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -96,6 +98,7 @@ def _load_local_data_layer() -> dict[str, object]:
     from backend.storage.db import init_db, session_scope
     from backend.storage.learner_repository import (
         get_or_create_default_learner,
+        update_learner_preferences,
         update_learner_tutor,
     )
     from backend.storage.session_repository import (
@@ -121,6 +124,7 @@ def _load_local_data_layer() -> dict[str, object]:
         "session_scope": session_scope,
         "get_or_create_default_learner": get_or_create_default_learner,
         "update_learner_tutor": update_learner_tutor,
+        "update_learner_preferences": update_learner_preferences,
         "get_or_create_session": get_or_create_session,
         "get_session": get_session,
         "set_session_title": set_session_title,
@@ -358,11 +362,13 @@ async def session_turns(session_id: str) -> JSONResponse:
     turns = data_layer["get_turns_for_session"](settings.db_path, session_id)
     session = data_layer["get_session"](settings.db_path, session_id)
     tutor_id = get_tutor(session.tutor_id if session else None).id
+    level = (session.level if session else None) or DEFAULT_LEVEL
 
     return JSONResponse(
         {
             "session_id": session_id,
             "tutor_id": tutor_id,
+            "level": level,
             "turns": [
                 {
                     "turn_id": turn.turn_id,
@@ -429,7 +435,33 @@ async def learner_profile() -> JSONResponse:
     data_layer = app.state.data_layer
     learner = data_layer["get_or_create_default_learner"](settings.db_path)
     return JSONResponse(
-        {"learner_id": learner.learner_id, "tutor_id": learner.tutor_id}
+        {
+            "learner_id": learner.learner_id,
+            "tutor_id": learner.tutor_id,
+            "level": learner.current_level,
+        }
+    )
+
+
+@app.put("/api/learner/level")
+async def set_learner_level(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Request body must be JSON.") from exc
+
+    level = payload.get("level") if isinstance(payload, dict) else None
+    if not isinstance(level, str) or level not in CEFR_LEVELS:
+        raise HTTPException(status_code=400, detail=f"Unknown level: {level!r}.")
+
+    if _is_proxy_mode():
+        return _proxy_json("PUT", "/api/learner/level", json={"level": level})
+
+    data_layer = app.state.data_layer
+    override = data_layer["teaching_config_override"](current_level=level, target_level=level)
+    learner = data_layer["update_learner_preferences"](settings.db_path, override)
+    return JSONResponse(
+        {"learner_id": learner.learner_id, "level": learner.current_level}
     )
 
 
@@ -565,14 +597,24 @@ async def tutor(
 
         learner = data_layer["get_or_create_default_learner"](settings.db_path)
         preferred_tutor = get_tutor(learner.tutor_id)
+        preferred_level = learner.current_level or DEFAULT_LEVEL
         session = data_layer["get_or_create_session"](
-            settings.db_path, resolved_session_id, learner.learner_id, tutor_id=preferred_tutor.id
+            settings.db_path,
+            resolved_session_id,
+            learner.learner_id,
+            tutor_id=preferred_tutor.id,
+            level=preferred_level,
         )
-        # The tutor is locked in on a session's first turn (see
-        # `get_or_create_session`) and never changes for the rest of that
-        # conversation, even if the learner later picks a different default
+        # The tutor and level are locked in on a session's first turn (see
+        # `get_or_create_session`) and never change for the rest of that
+        # conversation, even if the learner later picks different defaults
         # for their *next* chat.
         tutor = get_tutor(session.tutor_id)
+        session_level = session.level or DEFAULT_LEVEL
+        if session_override is None:
+            session_override = data_layer["teaching_config_override"](
+                current_level=session_level, target_level=session_level
+            )
         resolved_config = data_layer["resolve_teaching_config"](
             session_override=session_override,
             learner_preference=learner.to_override(),
@@ -640,6 +682,7 @@ async def tutor(
                 "transcription": whisper_result.transcription,
                 "response": tutor_result.response,
                 "tutor_id": tutor.id,
+                "level": session_level,
                 "corrections": tutor_result.corrections,
                 "natural_version": tutor_result.natural_version,
                 "vocabulary": tutor_result.vocabulary,

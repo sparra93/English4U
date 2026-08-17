@@ -261,6 +261,55 @@ class ApiTutorEndpointTests(unittest.TestCase):
         response = self._post_audio()
         self.assertEqual(response.json()["tutor_id"], "emma")
 
+    def test_response_defaults_level_to_b1_when_none_selected(self) -> None:
+        response = self._post_audio()
+        self.assertEqual(response.json()["level"], "B1")
+
+    def test_learner_level_endpoint_rejects_unknown_level(self) -> None:
+        response = self.client.put("/api/learner/level", json={"level": "Z9"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_learner_level_endpoint_persists_and_reflects_in_learner_profile(self) -> None:
+        response = self.client.put("/api/learner/level", json={"level": "A2"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["level"], "A2")
+
+        reloaded = self.client.get("/api/learner")
+        self.assertEqual(reloaded.json()["level"], "A2")
+
+    def test_level_is_locked_to_the_session_after_the_first_turn(self) -> None:
+        self.client.put("/api/learner/level", json={"level": "A2"})
+        first_response = self._post_audio()
+        session_id = first_response.json()["session_id"]
+        self.assertEqual(first_response.json()["level"], "A2")
+
+        # Changing the learner's default level mid-conversation must not
+        # affect a session that already has a locked-in level.
+        self.client.put("/api/learner/level", json={"level": "C1"})
+        second_response = self._post_audio(session_id=session_id)
+        self.assertEqual(second_response.json()["level"], "A2")
+
+        tutor_service = self.main_module.app.state.tutor
+        resolved_config = tutor_service.calls[-1]["config"]
+        self.assertEqual(resolved_config.current_level, "A2")
+        self.assertEqual(resolved_config.target_level, "A2")
+
+        # A brand-new session should pick up the new default.
+        third_response = self._post_audio()
+        self.assertEqual(third_response.json()["level"], "C1")
+
+    def test_session_turns_endpoint_includes_the_locked_level(self) -> None:
+        self.client.put("/api/learner/level", json={"level": "B2"})
+        response = self._post_audio()
+        session_id = response.json()["session_id"]
+
+        turns_response = self.client.get(f"/api/sessions/{session_id}/turns")
+        self.assertEqual(turns_response.json()["level"], "B2")
+
+    def test_session_turns_endpoint_defaults_level_for_unknown_session(self) -> None:
+        response = self.client.get("/api/sessions/does-not-exist/turns")
+        self.assertEqual(response.json()["level"], "B1")
+
     def test_tutor_is_locked_to_the_session_after_the_first_turn(self) -> None:
         first_response = self._post_audio()
         session_id = first_response.json()["session_id"]

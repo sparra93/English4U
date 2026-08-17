@@ -20,6 +20,7 @@ class SessionRecord:
     deleted_at: str | None
     tutor_id: str | None
     title: str | None
+    level: str | None
 
 
 @dataclass
@@ -43,6 +44,7 @@ def _row_to_record(row: object) -> SessionRecord:
         deleted_at=row["deleted_at"],
         tutor_id=row["tutor_id"],
         title=row["title"],
+        level=row["level"],
     )
 
 
@@ -58,18 +60,23 @@ def get_session(db_path: str | Path, session_id: str) -> SessionRecord | None:
 
 
 def get_or_create_session(
-    db_path: str | Path, session_id: str, learner_id: str, tutor_id: str | None = None
+    db_path: str | Path,
+    session_id: str,
+    learner_id: str,
+    tutor_id: str | None = None,
+    level: str | None = None,
 ) -> SessionRecord:
     """Idempotent: returns the existing session, or opens a new one.
 
     A "session" spans one browser tab's lifetime (see `backend/static/app.js`),
     so this is also the window future recent-turn memory reads from.
 
-    `tutor_id` is only written on first creation — once a session exists,
-    its tutor is locked for the rest of the conversation, regardless of
-    what the learner later picks as their default for the *next* chat. A
-    session created before this locking existed simply keeps `tutor_id`
-    NULL, which callers resolve via the catalog's default fallback.
+    `tutor_id` and `level` are only written on first creation — once a
+    session exists, its tutor and CEFR level are locked for the rest of the
+    conversation, regardless of what the learner later picks as their
+    default for the *next* chat. A session created before this locking
+    existed simply keeps both NULL, which callers resolve via their own
+    default fallback.
     """
 
     with session_scope(db_path) as connection:
@@ -83,10 +90,10 @@ def get_or_create_session(
         now = datetime.now(timezone.utc).isoformat()
         connection.execute(
             """
-            INSERT OR IGNORE INTO sessions (session_id, learner_id, started_at, last_active_at, tutor_id)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT OR IGNORE INTO sessions (session_id, learner_id, started_at, last_active_at, tutor_id, level)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (session_id, learner_id, now, now, tutor_id),
+            (session_id, learner_id, now, now, tutor_id, level),
         )
         row = connection.execute(
             "SELECT * FROM sessions WHERE session_id = ?", (session_id,)

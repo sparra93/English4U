@@ -46,8 +46,57 @@ TEACHER_STRICTNESS_INSTRUCTIONS: dict[str, str] = {
 }
 
 
+LEVEL_SPEAKING_GUIDANCE: dict[str, str] = {
+    "A1": (
+        "Use very short, simple sentences (roughly 5-10 words). Stick to "
+        "common, everyday words a total beginner would know. Use only "
+        "simple present and simple past. No phrasal verbs, no idioms, no "
+        "compound or complex sentences."
+    ),
+    "A2": (
+        "Use short, simple sentences. Stick to common everyday vocabulary "
+        "and basic tenses (present, past, 'going to' future). Avoid idioms "
+        "and complex grammar; keep each sentence to one main idea."
+    ),
+    "B1": (
+        "Use everyday vocabulary and moderately simple sentences. Basic "
+        "idioms and a normal range of common tenses are fine, but avoid "
+        "dense or highly complex phrasing."
+    ),
+    "B2": (
+        "Use natural, moderately complex sentences and everyday idioms. A "
+        "wider range of vocabulary and tenses is fine — talk the way you "
+        "would with a confident non-native speaker."
+    ),
+    "C1": (
+        "Use natural, fluent English with a rich vocabulary, idioms, and "
+        "varied sentence structures — the way you'd actually talk to a "
+        "strong English speaker."
+    ),
+    "C2": (
+        "Speak completely naturally, as you would with a native speaker — "
+        "full range of vocabulary, idiom, nuance, and complexity, no "
+        "simplification at all."
+    ),
+}
+
+
 def _load(path: Path) -> str:
     return path.read_text(encoding="utf-8").strip()
+
+
+def _render_difficulty_line(config: TeachingConfig) -> str:
+    if config.current_level == config.target_level:
+        guidance = LEVEL_SPEAKING_GUIDANCE[config.current_level]
+        return (
+            f"Target difficulty: hold this whole conversation at "
+            f"{config.current_level} level. {guidance}"
+        )
+    return (
+        f"Target difficulty: currently {config.current_level}, working "
+        f"toward {config.target_level}. Keep tasks slightly above the "
+        "student's comfort level without unexplained jumps in complexity."
+    )
 
 
 def _render_runtime_config_block(config: TeachingConfig) -> str:
@@ -63,9 +112,7 @@ def _render_runtime_config_block(config: TeachingConfig) -> str:
             else "You may use the student's native language for complex "
             "explanations, but do not make explanations incomprehensible."
         ),
-        f"Target difficulty: currently {config.current_level}, working "
-        f"toward {config.target_level}. Keep tasks slightly above the "
-        "student's comfort level without unexplained jumps in complexity.",
+        _render_difficulty_line(config),
         f"Offer at most {config.vocabulary_per_session} new vocabulary items "
         "across a full session — usually far fewer in a single turn.",
     ]

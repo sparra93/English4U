@@ -9,6 +9,7 @@ export interface TutorResponse {
   transcription: string;
   response: string;
   tutor_id: string;
+  level: string;
   corrections: string;
   natural_version: string;
   vocabulary: string;
@@ -39,6 +40,7 @@ export interface TutorProfile {
 export interface LearnerProfile {
   learner_id: string;
   tutor_id: string | null;
+  level: string | null;
 }
 
 export interface ConversationTurn {

@@ -2,6 +2,7 @@ import { Avatar, Group, Popover, Stack, Text, Tooltip, UnstyledButton } from "@m
 import { useDisclosure } from "@mantine/hooks";
 import { Lock } from "lucide-react";
 import { TeacherStatus } from "./TeacherStatus";
+import { LevelPicker } from "./LevelPicker";
 import { useTutorContext } from "../../context/TutorContext";
 import { initialsFor } from "../../utils/format";
 import type { TutorPhase } from "../../types/tutor";
@@ -43,54 +44,58 @@ export function TeacherPresence({ phase }: TeacherPresenceProps) {
 
   return (
     <Group justify="space-between" align="center" wrap="wrap" gap="md">
-      <Popover width={280} position="bottom-start" shadow="md" opened={opened} onClose={close}>
-        <Popover.Target>
-          {profile.isLocked ? (
-            <Tooltip label="Tutor locked for this conversation — start a new one to switch." position="bottom-start">
-              {trigger}
-            </Tooltip>
-          ) : (
-            trigger
-          )}
-        </Popover.Target>
-        <Popover.Dropdown>
-          <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb="xs" style={{ letterSpacing: "0.06em" }}>
-            Choose your tutor
-          </Text>
-          <Stack gap={2}>
-            {profile.tutors.map((tutor) => (
-              <UnstyledButton
-                key={tutor.id}
-                onClick={() => {
-                  void profile.selectTutor(tutor.id);
-                  close();
-                }}
-                px="sm"
-                py={6}
-                style={{
-                  borderRadius: "var(--mantine-radius-md)",
-                  backgroundColor:
-                    tutor.id === profile.activeTutor.id
-                      ? "var(--mantine-color-navy-0)"
-                      : "transparent",
-                }}
-              >
-                <Group justify="space-between" wrap="nowrap">
-                  <Text size="sm" fw={600}>
-                    {tutor.name}
+      <Group align="center" gap="md" wrap="wrap">
+        <Popover width={280} position="bottom-start" shadow="md" opened={opened} onClose={close}>
+          <Popover.Target>
+            {profile.isLocked ? (
+              <Tooltip label="Tutor locked for this conversation — start a new one to switch." position="bottom-start">
+                {trigger}
+              </Tooltip>
+            ) : (
+              trigger
+            )}
+          </Popover.Target>
+          <Popover.Dropdown>
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb="xs" style={{ letterSpacing: "0.06em" }}>
+              Choose your tutor
+            </Text>
+            <Stack gap={2}>
+              {profile.tutors.map((tutor) => (
+                <UnstyledButton
+                  key={tutor.id}
+                  onClick={() => {
+                    void profile.selectTutor(tutor.id);
+                    close();
+                  }}
+                  px="sm"
+                  py={6}
+                  style={{
+                    borderRadius: "var(--mantine-radius-md)",
+                    backgroundColor:
+                      tutor.id === profile.activeTutor.id
+                        ? "var(--mantine-color-navy-0)"
+                        : "transparent",
+                  }}
+                >
+                  <Group justify="space-between" wrap="nowrap">
+                    <Text size="sm" fw={600}>
+                      {tutor.name}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {tutor.specialty}
+                    </Text>
+                  </Group>
+                  <Text size="xs" c="dimmed" mt={2}>
+                    {tutor.tagline}
                   </Text>
-                  <Text size="xs" c="dimmed">
-                    {tutor.specialty}
-                  </Text>
-                </Group>
-                <Text size="xs" c="dimmed" mt={2}>
-                  {tutor.tagline}
-                </Text>
-              </UnstyledButton>
-            ))}
-          </Stack>
-        </Popover.Dropdown>
-      </Popover>
+                </UnstyledButton>
+              ))}
+            </Stack>
+          </Popover.Dropdown>
+        </Popover>
+
+        <LevelPicker />
+      </Group>
 
       <TeacherStatus phase={phase} />
     </Group>

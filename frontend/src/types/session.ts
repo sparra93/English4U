@@ -23,6 +23,7 @@ export interface SessionTurn {
 export interface SessionTurnsResponse {
   session_id: string;
   tutor_id: string;
+  level: string;
   turns: SessionTurn[];
 }
 

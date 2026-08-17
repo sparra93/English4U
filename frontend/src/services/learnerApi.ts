@@ -17,3 +17,11 @@ export async function updateLearnerTutor(tutorId: string): Promise<LearnerProfil
     body: JSON.stringify({ tutor_id: tutorId }),
   });
 }
+
+export async function updateLearnerLevel(level: string): Promise<LearnerProfile> {
+  return requestJson<LearnerProfile>("/api/learner/level", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ level }),
+  });
+}

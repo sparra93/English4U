@@ -85,6 +85,26 @@ class BuildMessagesTests(unittest.TestCase):
         self.assertEqual(messages[4], {"role": "assistant", "content": "What made it interesting?"})
         self.assertEqual(messages[5], {"role": "user", "content": "It was a new project."})
 
+    def test_difficulty_line_holds_steady_when_current_equals_target(self) -> None:
+        config = TeachingConfig(current_level="A2", target_level="A2")
+        learner = _make_learner()
+
+        messages = build_messages(config, learner, [], "Hi")
+
+        content = messages[0]["content"]
+        self.assertIn("hold this whole conversation at A2 level", content)
+        self.assertNotIn("working toward", content)
+
+    def test_difficulty_line_describes_growth_when_levels_differ(self) -> None:
+        config = TeachingConfig(current_level="B1", target_level="B2")
+        learner = _make_learner()
+
+        messages = build_messages(config, learner, [], "Hi")
+
+        content = messages[0]["content"]
+        self.assertIn("currently B1, working toward B2", content)
+        self.assertNotIn("hold this whole conversation", content)
+
     def test_no_learner_history_falls_back_to_placeholder(self) -> None:
         learner = _make_learner(goals=None)
         messages = build_messages(DEFAULT_TEACHING_CONFIG, learner, [], "Hi")

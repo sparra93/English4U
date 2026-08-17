@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ActionIcon, Group, ScrollArea, Stack, Text, UnstyledButton } from "@mantine/core";
 import { Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useTutorContext } from "../../context/TutorContext";
 import { SessionMenu } from "./SessionMenu";
 import { ConfirmDeleteSessionModal } from "./ConfirmDeleteSessionModal";
@@ -14,6 +15,12 @@ export function SessionList({ collapsed }: SessionListProps) {
   const { sessionId, startNewSession, loadSessionTurns, sessions } = useTutorContext();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const handleStartNew = () => {
+    startNewSession();
+    navigate("/");
+  };
 
   if (collapsed) {
     return (
@@ -22,7 +29,7 @@ export function SessionList({ collapsed }: SessionListProps) {
         color="navy"
         size="lg"
         mx="auto"
-        onClick={startNewSession}
+        onClick={handleStartNew}
         aria-label="New conversation"
       >
         <Plus size={18} aria-hidden="true" />
@@ -31,11 +38,15 @@ export function SessionList({ collapsed }: SessionListProps) {
   }
 
   const handleSwitch = async (id: string) => {
-    if (id === sessionId) return;
+    if (id === sessionId) {
+      navigate("/");
+      return;
+    }
     setPendingId(id);
     try {
       const data = await sessions.switchSession(id);
-      loadSessionTurns(id, data.turns, data.tutor_id);
+      loadSessionTurns(id, data.turns, data.tutor_id, data.level);
+      navigate("/");
     } catch {
       // Non-critical: leave the current conversation untouched.
     } finally {
@@ -62,7 +73,7 @@ export function SessionList({ collapsed }: SessionListProps) {
   return (
     <Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
       <UnstyledButton
-        onClick={startNewSession}
+        onClick={handleStartNew}
         px="sm"
         py={6}
         style={{
@@ -80,10 +91,6 @@ export function SessionList({ collapsed }: SessionListProps) {
         <Plus size={14} aria-hidden="true" />
         New conversation
       </UnstyledButton>
-
-      <Text size="xs" fw={700} c="dimmed" tt="uppercase" mt="xs" style={{ letterSpacing: "0.06em" }}>
-        Past sessions
-      </Text>
 
       <ScrollArea style={{ flex: 1 }} type="auto" offsetScrollbars>
         <Stack gap={2}>
