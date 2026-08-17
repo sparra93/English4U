@@ -1,8 +1,9 @@
 import { ActionIcon, AppShell, Box, Group, Text } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
 import { ChevronLeft } from "lucide-react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { SidebarNav } from "./SidebarNav";
+import { SidebarSection } from "./SidebarSection";
 import { SessionList } from "./SessionList";
 
 export function AppShellLayout() {
@@ -10,8 +11,6 @@ export function AppShellLayout() {
     key: "english-ai-tutor-sidebar-collapsed",
     defaultValue: false,
   });
-  const location = useLocation();
-  const isConversationPage = location.pathname === "/";
 
   return (
     <AppShell
@@ -77,9 +76,13 @@ export function AppShellLayout() {
           </ActionIcon>
         </Group>
 
-        <SidebarNav collapsed={collapsed} />
+        <SidebarSection label="Sessions" collapsed={collapsed} grow>
+          <SessionList collapsed={collapsed} />
+        </SidebarSection>
 
-        {isConversationPage ? <SessionList collapsed={collapsed} /> : null}
+        <SidebarSection label="Profile" collapsed={collapsed}>
+          <SidebarNav collapsed={collapsed} />
+        </SidebarSection>
       </AppShell.Navbar>
 
       <AppShell.Main

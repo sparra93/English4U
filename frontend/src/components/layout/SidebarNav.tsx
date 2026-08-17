@@ -1,15 +1,12 @@
 import { NavLink, Stack } from "@mantine/core";
 import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
-import { BarChart3, MessageSquare } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 
 interface SidebarNavProps {
   collapsed: boolean;
 }
 
-const LINKS = [
-  { to: "/", label: "Conversation", icon: MessageSquare },
-  { to: "/progress", label: "My Progress", icon: BarChart3 },
-];
+const LINKS = [{ to: "/progress", label: "My Progress", icon: BarChart3 }];
 
 export function SidebarNav({ collapsed }: SidebarNavProps) {
   const location = useLocation();
