@@ -19,6 +19,12 @@ from fastapi.staticfiles import StaticFiles
 from backend.config import GENERATED_DIR, settings
 from backend.tutors import get_tutor, list_tutors
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
 MAX_SESSION_ID_LENGTH = 128
 MAX_HISTORY_LIMIT = 500
 DEFAULT_HISTORY_LIMIT = 200
@@ -154,6 +160,7 @@ def _init_optional_service(
         setattr(app.state, state_name, service_factory())
         setattr(app.state, error_state_name, None)
     except Exception as exc:
+        logger.exception("Failed to initialize %s at startup", state_name)
         setattr(app.state, state_name, None)
         setattr(app.state, error_state_name, str(exc))
 
@@ -551,6 +558,7 @@ async def tutor(
 
     upload_path: Path | None = None
     started_at = time.perf_counter()
+    session_id_for_log = session_id or "new-session"
     whisper_error_type = getattr(app.state, "whisper_error_type", ())
     tutor_error_type = getattr(app.state, "tutor_error_type", ())
     tts_error_type = getattr(app.state, "tts_error_type", ())
@@ -582,6 +590,7 @@ async def tutor(
         if session_id and len(session_id) > MAX_SESSION_ID_LENGTH:
             raise HTTPException(status_code=400, detail="session_id is too long.")
         resolved_session_id = session_id or uuid.uuid4().hex
+        session_id_for_log = resolved_session_id
 
         session_override = None
         if teaching_config_override:
@@ -679,7 +688,7 @@ async def tutor(
                 if title:
                     data_layer["set_session_title"](settings.db_path, resolved_session_id, title)
             except Exception:
-                logging.getLogger(__name__).warning(
+                logger.warning(
                     "Session title generation failed for %s", resolved_session_id, exc_info=True
                 )
 
@@ -705,15 +714,22 @@ async def tutor(
                 "audio_url": f"/generated/{output_name}",
             }
         )
-    except HTTPException:
+    except HTTPException as exc:
+        logger.warning(
+            "session=%s /api/tutor rejected with %s: %s", session_id_for_log, exc.status_code, exc.detail
+        )
         raise
     except Exception as exc:
         if whisper_error_type and isinstance(exc, whisper_error_type):
+            logger.warning("session=%s Whisper failed: %s", session_id_for_log, exc)
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         if tutor_error_type and isinstance(exc, tutor_error_type):
+            logger.warning("session=%s Tutor service failed: %s", session_id_for_log, exc)
             raise HTTPException(status_code=502, detail=str(exc)) from exc
         if tts_error_type and isinstance(exc, tts_error_type):
+            logger.warning("session=%s TTS service failed: %s", session_id_for_log, exc)
             raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.exception("session=%s Unexpected error handling /api/tutor", session_id_for_log)
         raise HTTPException(status_code=500, detail="The tutor request failed unexpectedly.") from exc
     finally:
         await audio.close()
