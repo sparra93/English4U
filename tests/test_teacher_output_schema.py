@@ -4,7 +4,13 @@ import unittest
 
 from pydantic import ValidationError
 
-from backend.schemas.teacher_output import CorrectionItem, TeacherReply, VocabularySuggestion, inline_refs
+from backend.schemas.teacher_output import (
+    CorrectionItem,
+    KeyPhrase,
+    TeacherReply,
+    VocabularySuggestion,
+    inline_refs,
+)
 
 
 class TeacherReplyTests(unittest.TestCase):
@@ -16,6 +22,17 @@ class TeacherReplyTests(unittest.TestCase):
         )
         self.assertEqual(reply.corrections, [])
         self.assertIsNone(reply.vocabulary)
+        self.assertEqual(reply.key_phrases, [])
+
+    def test_valid_payload_with_key_phrases(self) -> None:
+        reply = TeacherReply(
+            response="How did your barbecue turn out?",
+            has_corrections=False,
+            natural_version="How did your barbecue turn out?",
+            key_phrases=[KeyPhrase(phrase="turn out", meaning="to end up / result in a certain way")],
+        )
+        self.assertEqual(len(reply.key_phrases), 1)
+        self.assertEqual(reply.key_phrases[0].phrase, "turn out")
 
     def test_valid_payload_with_corrections_and_vocabulary(self) -> None:
         reply = TeacherReply(

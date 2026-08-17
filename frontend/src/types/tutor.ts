@@ -13,6 +13,7 @@ export interface TutorResponse {
   corrections: string;
   natural_version: string;
   vocabulary: string;
+  key_phrases: string;
   session_id: string;
   timings: TutorTimings;
   audio_url: string;

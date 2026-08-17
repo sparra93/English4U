@@ -21,6 +21,18 @@ class VocabularySuggestion(BaseModel):
     example_usage: str = Field(min_length=1)
 
 
+class KeyPhrase(BaseModel):
+    """An idiom, phrasal verb, or less common word the tutor itself used in
+    `response` — glossed so the student isn't left confused by something
+    they weren't actively being taught. Distinct from `vocabulary`, which is
+    a single word deliberately introduced to teach."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    phrase: str = Field(min_length=1)
+    meaning: str = Field(min_length=1)
+
+
 class TeacherReply(BaseModel):
     """Structured, schema-validated shape of a single Teacher turn.
 
@@ -36,6 +48,7 @@ class TeacherReply(BaseModel):
     corrections: list[CorrectionItem] = Field(default_factory=list)
     natural_version: str = Field(min_length=1)
     vocabulary: VocabularySuggestion | None = None
+    key_phrases: list[KeyPhrase] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _corrections_consistency(self) -> "TeacherReply":

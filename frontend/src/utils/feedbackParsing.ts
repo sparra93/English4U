@@ -11,6 +11,7 @@ export interface VocabularyItem {
 
 const NO_CORRECTIONS_PATTERN = /^no important corrections\.?$/i;
 const NO_VOCABULARY_PATTERN = /^no vocabulary suggestion provided\.?$/i;
+const NO_KEY_PHRASES_PATTERN = /^no key phrases this turn\.?$/i;
 
 export function isCleanCorrection(correctionsText: string | null | undefined): boolean {
   const normalized = (correctionsText ?? "").trim();
@@ -53,6 +54,28 @@ export function parseVocabulary(vocabularyText: string | null | undefined): Voca
 
   const [term, ...rest] = normalized.split(/\n+/).map((line) => line.trim());
   return { term: term ?? "", description: rest.join(" ") };
+}
+
+export interface KeyPhraseItem {
+  phrase: string;
+  meaning: string;
+}
+
+export function parseKeyPhrases(keyPhrasesText: string | null | undefined): KeyPhraseItem[] {
+  const normalized = (keyPhrasesText ?? "").trim();
+  if (!normalized || NO_KEY_PHRASES_PATTERN.test(normalized)) {
+    return [];
+  }
+
+  return normalized
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [phrase, ...rest] = line.split(":");
+      return { phrase: (phrase ?? "").trim(), meaning: rest.join(":").trim() };
+    })
+    .filter((item) => item.phrase);
 }
 
 export interface VocabularyAggregate extends VocabularyItem {

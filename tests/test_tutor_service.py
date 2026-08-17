@@ -6,12 +6,14 @@ from unittest.mock import Mock, patch
 
 import requests
 
+from backend.schemas.teacher_output import KeyPhrase
 from backend.schemas.teaching_config import DEFAULT_TEACHING_CONFIG
 from backend.services.tutor_service import (
     TutorService,
     TutorServiceError,
     TutorValidationError,
     format_corrections_for_display,
+    format_key_phrases_for_display,
     format_vocabulary_for_display,
 )
 from backend.storage.learner_repository import LearnerRecord
@@ -28,6 +30,7 @@ VALID_PAYLOAD = {
         "meaning": "to spend effort improving something",
         "example_usage": "I'm working on my pronunciation.",
     },
+    "key_phrases": [{"phrase": "turn out", "meaning": "to end up / result in a certain way"}],
 }
 
 
@@ -65,6 +68,22 @@ class ParseCorrectionsAndVocabularyDisplayTests(unittest.TestCase):
     def test_no_vocabulary_message(self) -> None:
         self.assertEqual(format_vocabulary_for_display(None), "No vocabulary suggestion provided.")
 
+    def test_no_key_phrases_message(self) -> None:
+        self.assertEqual(format_key_phrases_for_display([]), "No key phrases this turn.")
+
+    def test_key_phrases_message_lists_each_phrase(self) -> None:
+        formatted = format_key_phrases_for_display(
+            [
+                KeyPhrase(phrase="turn out", meaning="to end up / result in a certain way"),
+                KeyPhrase(phrase="figure out", meaning="to understand or solve something"),
+            ]
+        )
+        self.assertEqual(
+            formatted,
+            "turn out: to end up / result in a certain way\n"
+            "figure out: to understand or solve something",
+        )
+
 
 class TutorServiceAskTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -88,6 +107,7 @@ class TutorServiceAskTests(unittest.TestCase):
         self.assertEqual(result.natural_version, VALID_PAYLOAD["natural_version"])
         self.assertIn("I go yesterday -> I went yesterday", result.corrections)
         self.assertIn("work on", result.vocabulary)
+        self.assertIn("turn out", result.key_phrases)
         self.assertTrue(result.structured.has_corrections)
 
     def test_invalid_then_valid_retries_exactly_once(self) -> None:

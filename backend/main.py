@@ -93,6 +93,7 @@ def _load_local_data_layer() -> dict[str, object]:
     from backend.schemas.teaching_config import TeachingConfigOverride, resolve_teaching_config
     from backend.services.tutor_service import (
         format_corrections_for_display,
+        format_key_phrases_for_display,
         format_vocabulary_for_display,
     )
     from backend.storage.db import init_db, session_scope
@@ -137,6 +138,7 @@ def _load_local_data_layer() -> dict[str, object]:
         "insert_turn": insert_turn,
         "format_corrections_for_display": format_corrections_for_display,
         "format_vocabulary_for_display": format_vocabulary_for_display,
+        "format_key_phrases_for_display": format_key_phrases_for_display,
     }
 
 
@@ -318,6 +320,9 @@ async def history(limit: int = DEFAULT_HISTORY_LIMIT) -> JSONResponse:
                     "vocabulary": data_layer["format_vocabulary_for_display"](
                         turn.teacher_output.vocabulary
                     ),
+                    "key_phrases": data_layer["format_key_phrases_for_display"](
+                        turn.teacher_output.key_phrases
+                    ),
                 }
                 for turn in turns
             ],
@@ -381,6 +386,9 @@ async def session_turns(session_id: str) -> JSONResponse:
                     "natural_version": turn.teacher_output.natural_version,
                     "vocabulary": data_layer["format_vocabulary_for_display"](
                         turn.teacher_output.vocabulary
+                    ),
+                    "key_phrases": data_layer["format_key_phrases_for_display"](
+                        turn.teacher_output.key_phrases
                     ),
                 }
                 for turn in turns
@@ -686,6 +694,7 @@ async def tutor(
                 "corrections": tutor_result.corrections,
                 "natural_version": tutor_result.natural_version,
                 "vocabulary": tutor_result.vocabulary,
+                "key_phrases": tutor_result.key_phrases,
                 "session_id": resolved_session_id,
                 "timings": {
                     "whisper": round(whisper_result.elapsed_seconds, 3),

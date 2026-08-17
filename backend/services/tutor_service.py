@@ -9,7 +9,13 @@ import requests
 from pydantic import ValidationError
 
 from backend.config import settings
-from backend.schemas.teacher_output import CorrectionItem, TeacherReply, VocabularySuggestion, inline_refs
+from backend.schemas.teacher_output import (
+    CorrectionItem,
+    KeyPhrase,
+    TeacherReply,
+    VocabularySuggestion,
+    inline_refs,
+)
 from backend.schemas.teaching_config import TeachingConfig
 from backend.services.prompt_builder import build_messages
 from backend.storage.learner_repository import LearnerRecord
@@ -42,6 +48,7 @@ class TutorResult:
     corrections: str
     natural_version: str
     vocabulary: str
+    key_phrases: str
     voice_response: str
     elapsed_seconds: float
 
@@ -62,6 +69,13 @@ def format_vocabulary_for_display(vocabulary: VocabularySuggestion | None) -> st
         return "No vocabulary suggestion provided."
 
     return f"{vocabulary.term}\n{vocabulary.meaning} — {vocabulary.example_usage}"
+
+
+def format_key_phrases_for_display(key_phrases: list[KeyPhrase]) -> str:
+    if not key_phrases:
+        return "No key phrases this turn."
+
+    return "\n".join(f"{item.phrase}: {item.meaning}" for item in key_phrases)
 
 
 class TutorService:
@@ -215,6 +229,7 @@ class TutorService:
             corrections=format_corrections_for_display(structured.corrections),
             natural_version=structured.natural_version,
             vocabulary=format_vocabulary_for_display(structured.vocabulary),
+            key_phrases=format_key_phrases_for_display(structured.key_phrases),
             voice_response=structured.response,
             elapsed_seconds=elapsed_seconds,
         )

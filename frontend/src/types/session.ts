@@ -18,6 +18,7 @@ export interface SessionTurn {
   corrections: string;
   natural_version: string;
   vocabulary: string;
+  key_phrases: string;
 }
 
 export interface SessionTurnsResponse {

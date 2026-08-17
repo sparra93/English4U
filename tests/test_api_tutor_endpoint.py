@@ -66,6 +66,7 @@ class FakeTutorService:
             corrections="No important corrections.",
             natural_version=structured.natural_version,
             vocabulary="No vocabulary suggestion provided.",
+            key_phrases="No key phrases this turn.",
             voice_response=structured.response,
             elapsed_seconds=0.05,
         )
@@ -260,6 +261,10 @@ class ApiTutorEndpointTests(unittest.TestCase):
     def test_response_includes_the_resolved_tutor_id(self) -> None:
         response = self._post_audio()
         self.assertEqual(response.json()["tutor_id"], "emma")
+
+    def test_response_includes_key_phrases(self) -> None:
+        response = self._post_audio()
+        self.assertEqual(response.json()["key_phrases"], "No key phrases this turn.")
 
     def test_response_defaults_level_to_b1_when_none_selected(self) -> None:
         response = self._post_audio()

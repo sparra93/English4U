@@ -10,6 +10,7 @@ export interface TutorFeedback {
   corrections: string;
   naturalVersion: string;
   vocabulary: string;
+  keyPhrases: string;
 }
 
 interface PersistedSession {
@@ -113,6 +114,7 @@ export function useTutor(): UseTutorResult {
         corrections: data.corrections,
         naturalVersion: data.natural_version,
         vocabulary: data.vocabulary,
+        keyPhrases: data.key_phrases,
       };
 
       setSessionId(resolvedSessionId);
@@ -154,6 +156,7 @@ export function useTutor(): UseTutorResult {
             corrections: lastTurn.corrections,
             naturalVersion: lastTurn.natural_version,
             vocabulary: lastTurn.vocabulary,
+            keyPhrases: lastTurn.key_phrases,
           }
         : null;
 

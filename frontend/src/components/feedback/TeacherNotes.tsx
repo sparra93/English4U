@@ -1,6 +1,7 @@
 import { Divider, Stack, Text, Title } from "@mantine/core";
 import { NaturalVersion } from "./NaturalVersion";
 import { VocabularyNote } from "./VocabularyNote";
+import { KeyPhrases } from "./KeyPhrases";
 import { TechnicalDetails } from "./TechnicalDetails";
 import type { TutorFeedback } from "../../hooks/useTutor";
 import type { TutorTimings } from "../../types/tutor";
@@ -37,6 +38,15 @@ export function TeacherNotes({ feedback, timings }: TeacherNotesProps) {
               New Expression
             </Text>
             <VocabularyNote vocabularyText={feedback.vocabulary} />
+          </Stack>
+
+          <Divider />
+
+          <Stack gap="xs">
+            <Text size="xs" fw={700} tt="uppercase" c="dimmed" style={SECTION_LABEL_STYLE}>
+              Key Phrases
+            </Text>
+            <KeyPhrases keyPhrasesText={feedback.keyPhrases} />
           </Stack>
         </>
       ) : (

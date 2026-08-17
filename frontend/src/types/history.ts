@@ -7,6 +7,7 @@ export interface HistoryTurn {
   corrections: string;
   natural_version: string;
   vocabulary: string;
+  key_phrases: string;
 }
 
 export interface HistoryResponse {
