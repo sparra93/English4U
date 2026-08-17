@@ -9,6 +9,7 @@ import { useTutorContext } from "../context/TutorContext";
 import { useRecorder } from "../hooks/useRecorder";
 import { useAudioPlayback } from "../hooks/useAudioPlayback";
 import { useRecordingLevel } from "../hooks/useRecordingLevel";
+import { useAutoStopOnSilence } from "../hooks/useAutoStopOnSilence";
 import { ApiError } from "../services/httpClient";
 import type { TutorPhase } from "../types/tutor";
 
@@ -62,6 +63,8 @@ export function TutorSessionPage() {
     setErrorMessage(null);
     await recorder.start();
   }, [recorder, submit, sessions, audioPlayback, isProcessing]);
+
+  useAutoStopOnSilence(level, recorder.isRecording, () => void handleToggle());
 
   const handleReplay = useCallback(
     (audioUrl: string) => {
