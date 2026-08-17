@@ -49,6 +49,7 @@ export function ConversationTimeline({
             key={turn.id}
             text={turn.text}
             audioUrl={turn.audioUrl}
+            corrections={turn.corrections}
             teacherName={teacherName}
             onReplay={onReplay}
           />

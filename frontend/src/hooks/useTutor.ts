@@ -53,7 +53,12 @@ function newSessionId(): string {
 function turnToMessages(turn: SessionTurn): ConversationTurn[] {
   return [
     { id: `student-${turn.turn_id}`, role: "student", text: turn.transcription },
-    { id: `teacher-${turn.turn_id}`, role: "teacher", text: turn.response },
+    {
+      id: `teacher-${turn.turn_id}`,
+      role: "teacher",
+      text: turn.response,
+      corrections: turn.corrections,
+    },
   ];
 }
 
@@ -101,6 +106,7 @@ export function useTutor(): UseTutorResult {
           role: "teacher",
           text: data.response,
           audioUrl: data.audio_url,
+          corrections: data.corrections,
         },
       ];
       const nextFeedback: TutorFeedback = {

@@ -1,5 +1,4 @@
 import { Divider, Stack, Text, Title } from "@mantine/core";
-import { CorrectionFeedback } from "./CorrectionFeedback";
 import { NaturalVersion } from "./NaturalVersion";
 import { VocabularyNote } from "./VocabularyNote";
 import { TechnicalDetails } from "./TechnicalDetails";
@@ -24,15 +23,6 @@ export function TeacherNotes({ feedback, timings }: TeacherNotesProps) {
 
       {feedback ? (
         <>
-          <Stack gap="xs">
-            <Text size="xs" fw={700} tt="uppercase" c="dimmed" style={SECTION_LABEL_STYLE}>
-              Corrections
-            </Text>
-            <CorrectionFeedback correctionsText={feedback.corrections} />
-          </Stack>
-
-          <Divider />
-
           <Stack gap="xs">
             <Text size="xs" fw={700} tt="uppercase" c="dimmed" style={SECTION_LABEL_STYLE}>
               More Natural

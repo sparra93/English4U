@@ -1,15 +1,19 @@
 import { Avatar, Box, Group, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { Volume2 } from "lucide-react";
 import { initialsFor } from "../../utils/format";
+import { isCleanCorrection } from "../../utils/feedbackParsing";
+import { CorrectionFeedback } from "../feedback/CorrectionFeedback";
 
 interface TeacherTurnProps {
   text: string;
   audioUrl?: string;
+  corrections?: string;
   teacherName: string;
   onReplay: (audioUrl: string) => void;
 }
 
-export function TeacherTurn({ text, audioUrl, teacherName, onReplay }: TeacherTurnProps) {
+export function TeacherTurn({ text, audioUrl, corrections, teacherName, onReplay }: TeacherTurnProps) {
+  const hasCorrection = !!corrections && !isCleanCorrection(corrections);
   return (
     <Group align="flex-start" wrap="nowrap" gap="xs">
       <Avatar radius="xl" size={32} color="navy" variant="filled" mt={2}>
@@ -33,6 +37,20 @@ export function TeacherTurn({ text, audioUrl, teacherName, onReplay }: TeacherTu
             {text}
           </Text>
         </Box>
+        {hasCorrection ? (
+          <Box
+            mt={6}
+            px="md"
+            py="sm"
+            style={{
+              borderRadius: "var(--mantine-radius-md)",
+              backgroundColor: "var(--mantine-color-amber-0)",
+              border: "1px solid var(--mantine-color-amber-2)",
+            }}
+          >
+            <CorrectionFeedback correctionsText={corrections!} />
+          </Box>
+        ) : null}
         {audioUrl ? (
           <Tooltip label="Replay response" position="bottom-start">
             <UnstyledButton

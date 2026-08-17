@@ -48,4 +48,5 @@ export interface ConversationTurn {
   role: "student" | "teacher";
   text: string;
   audioUrl?: string;
+  corrections?: string;
 }
